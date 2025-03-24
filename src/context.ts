@@ -5,15 +5,16 @@ import { ResourceDll } from "./util/resourcedll";
 import { IniSectionsModel } from "./models/ini-section.model";
 import { SystemModel } from "./models/system.model";
 import { FactionModel } from "./models/faction.model";
+import { parseUtf, UtfTree } from "./util/utf";
 
 export class DataContext implements IDataContext {
   static readonly INSTANCE = new DataContext();
 
-  public path = "";
+  public path!: string;
 
-  private models = {
-    faction: [] as FactionModel[],
-    system: [] as SystemModel[],
+  private models: { [K in EntityType]: Entity[K][] } = {
+    faction: [],
+    system: [],
     // commodity: [],
     // equipment: [],
   };
@@ -22,10 +23,12 @@ export class DataContext implements IDataContext {
   private infocards: Map<number, string> = new Map();
 
   private inis: Map<string, IniSectionsModel> = new Map();
+  private utfs: Map<string, UtfTree> = new Map();
+  private binaries: Map<string, ArrayBuffer> = new Map();
 
   private infocardMap: Map<number, number> = new Map();
 
-  static async load(instancePath: string): Promise<void> {
+  static async load(instancePath: string) {
     await DataContext.INSTANCE.init(instancePath);
   }
 
@@ -56,6 +59,16 @@ export class DataContext implements IDataContext {
       }
       i++;
     }
+
+    // Load assorted binary files
+    const navmapUtf = await this.loadUtf(
+      "DATA/INTERFACE/NEURONET/NAVMAP/NEWNAVMAP/nav_prettymap.3db",
+      "navmap"
+    );
+    this.registerBinary(
+      "navmap",
+      navmapUtf.get("Texture library\\fancymap.tga\\MIPS")?.data
+    );
 
     // Load mbases
     await this.parseIni("DATA/MISSIONS/mbases.ini", "mbases");
@@ -151,12 +164,39 @@ export class DataContext implements IDataContext {
       sections: await parseIni(path.join(this.path, relativePath)),
       name: [relativePath, {}],
     });
-    this.inis.set(nickname ?? relativePath, ini);
+    this.inis.set(relativePath, ini);
+    if (nickname) {
+      this.inis.set(nickname, ini);
+    }
     return ini;
+  }
+
+  async loadUtf(relativePath: string, nickname?: string) {
+    const filepath = path.join(this.path, relativePath);
+    const tree = await parseUtf(filepath);
+    this.utfs.set(relativePath, tree);
+    if (nickname) {
+      this.utfs.set(nickname, tree);
+    }
+    return tree;
+  }
+
+  registerBinary(handle: string, data?: ArrayBuffer) {
+    if (data) {
+      this.binaries.set(handle, data);
+    }
   }
 
   ini(relativePath: string) {
     return this.inis.get(relativePath);
+  }
+
+  utf(relativePath: string, key: string) {
+    return this.utfs.get(relativePath)?.get(key)?.data;
+  }
+
+  binary(handle: string) {
+    return this.binaries.get(handle);
   }
 
   findByNickname<K extends EntityType>(type: K, nickname: string) {

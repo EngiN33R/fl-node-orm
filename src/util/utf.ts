@@ -33,6 +33,59 @@ const UTF_ENTRY_FIELDS = {
   LastWriteTime: "uint32",
 };
 
+export class UtfTree {
+  public path: string;
+  public parent?: UtfTree;
+  public children: Record<string, UtfTree>;
+  public data?: ArrayBuffer;
+
+  constructor(path: string, parent?: UtfTree, data?: ArrayBuffer) {
+    this.path = path;
+    this.parent = parent;
+    this.data = data;
+    this.children = {};
+  }
+
+  put(path: string, data?: ArrayBuffer) {
+    const parts = path.split("\\");
+    let current: UtfTree = this;
+    for (const part of parts) {
+      if (!current.children[part]) {
+        current.children[part] = new UtfTree(path, current);
+      }
+      current = current.children[part];
+    }
+    current.data = data;
+    return current;
+  }
+
+  get(path: string) {
+    const parts = path.split("\\");
+    let current: UtfTree = this;
+    for (const part of parts) {
+      if (!current.children[part]) {
+        return undefined;
+      }
+      current = current.children[part];
+    }
+    return current;
+  }
+
+  list(path?: string) {
+    let current: UtfTree = this;
+    if (path) {
+      const parts = path.split("\\");
+      for (const part of parts) {
+        if (!current.children[part]) {
+          return [];
+        }
+        current = current.children[part];
+      }
+    }
+    return Object.values(current.children);
+  }
+}
+
 function readStruct<K extends string>(
   view: DataView,
   fields: Record<K, string>
@@ -70,10 +123,9 @@ const TYPE_CHILD = 0x80; // utf tree types
 const TYPE_DATA = 0x10;
 
 // Generator function to parse the file
-export async function* parseUtf(
-  path: string
-): AsyncGenerator<[string, DataView]> {
+export async function parseUtf(path: string): Promise<UtfTree> {
   const fileHandle = await fs.open(path, "r");
+  const root = new UtfTree("\\");
   try {
     const headerBuffer = new ArrayBuffer(56);
     const view = new DataView(headerBuffer);
@@ -113,6 +165,9 @@ export async function* parseUtf(
       position += name.byteLength + 1;
     }
 
+    let current = root;
+    let currentTreeEnd: number = 0;
+
     // Read data tree
     for (let e = 0; e < entryCount; e++) {
       const entryBuffer = new ArrayBuffer(44);
@@ -122,6 +177,9 @@ export async function* parseUtf(
       const entry = readStruct(entryView, UTF_ENTRY_FIELDS);
 
       const name = names[entry.DictionaryNameOffset];
+      if (name === "\\") {
+        continue;
+      }
 
       const dataBuffer = new ArrayBuffer(entry.UsedDataSize);
       const dataView = new DataView(dataBuffer);
@@ -131,36 +189,21 @@ export async function* parseUtf(
         entry.UsedDataSize,
         entry.ChildOrDataOffset + header.DataStartOffset
       );
-
-      yield [name, dataView];
+      const created = current.put(name, dataView.buffer);
+      if (entry.EntryType === 16) {
+        currentTreeEnd = entry.NextSiblingOffset;
+        current = created;
+      } else if (entry.NextSiblingOffset === 0) {
+        current = current.parent!;
+        if (currentTreeEnd === 0) {
+          current = current.parent!;
+        }
+      }
     }
   } finally {
     await fileHandle.close();
+    return root;
   }
-}
-
-// Extract specific directory
-export async function extractUtf(
-  path: string,
-  targetDirectory: string
-): Promise<ArrayBuffer> {
-  for await (const [dirName, dirData] of parseUtf(path)) {
-    if (dirName === targetDirectory) {
-      return dirData.buffer;
-    }
-  }
-  throw new Error(`Directory '${targetDirectory}' not found`);
-}
-
-// Dump all data
-export async function dumpUtf(
-  path: string
-): Promise<Record<string, ArrayBuffer>> {
-  const result: Record<string, ArrayBuffer> = {};
-  for await (const [name, data] of parseUtf(path)) {
-    result[name] = data.buffer;
-  }
-  return result;
 }
 
 export { TYPE_CHILD, TYPE_DATA };

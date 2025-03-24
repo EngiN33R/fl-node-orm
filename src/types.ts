@@ -99,6 +99,16 @@ export interface IIniSections extends Model {
   path: string;
   keys: string[];
   sections: IIniSection[];
+
+  findAll(name: string, predicate?: (s: IIniSection) => boolean): IIniSection[];
+  findFirst(
+    name: string,
+    predicate?: (s: IIniSection) => boolean
+  ): IIniSection | undefined;
+  findFirstWithChildren(
+    name: string,
+    predicate?: (s: IIniSection) => boolean
+  ): [IIniSection, IIniSection[]] | [undefined, []];
 }
 
 export type Entity = {
@@ -108,12 +118,45 @@ export type Entity = {
 
 export type EntityType = keyof Entity;
 
+export interface IEntityQuerier<K extends EntityType> {
+  findAll(): Entity[K][];
+  findByNickname(nickname: string): Entity[K] | undefined;
+}
+
 export interface IDataContext {
+  /**
+   * Find first entity of type by nickname.
+   * @param type Entity type.
+   * @param nickname Entity nickname.
+   */
   findByNickname<K extends EntityType>(
     type: K,
     nickname: string
   ): Entity[K] | undefined;
+  /**
+   * Get IDS string for key.
+   * @param key IDS key.
+   */
   ids(key: number): string;
+  /**
+   * Get IDS string and related string for key (used for base infocards).
+   * @param key IDS key.
+   */
   idsWithRelated(key: number): [string] | [string, string];
-  ini(relativePath: string): IIniSections | undefined;
+  /**
+   * Get model for raw INI file.
+   * @param handle INI file handle or path relative to instance root.
+   */
+  ini(handle: string): IIniSections | undefined;
+  /**
+   * Get data for a UTF node.
+   * @param handle File handle or path relative to instance root.
+   */
+  utf(handle: string, key: string): ArrayBuffer | undefined;
+  /**
+   * Get well-known binary data directly.
+   * @param handle Binary data handle.
+   */
+  binary(handle: string): ArrayBuffer | undefined;
+  entity<K extends EntityType>(type: K): IEntityQuerier<K>;
 }
