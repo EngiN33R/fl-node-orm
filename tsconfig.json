@@ -1,0 +1,18 @@
+{
+  "exclude": ["dist", "node_modules", "test"],
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "esnext",
+    "types": ["node", "jest"],
+    "rootDir": "src",
+    "outDir": "dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  }
+}
