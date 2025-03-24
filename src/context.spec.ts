@@ -1,5 +1,4 @@
-import path from "path";
-import { DataContext } from "../src/context";
+import { DataContext } from "./context";
 
 describe("DataContext", () => {
   describe("loading and parsing", () => {

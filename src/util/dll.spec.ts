@@ -1,5 +1,5 @@
 import path from "path";
-import { ResourceDll } from "../src/util/resourcedll";
+import { ResourceDll } from "./resourcedll";
 
 describe("ResourceDll", () => {
   it("should parse dll file", async () => {

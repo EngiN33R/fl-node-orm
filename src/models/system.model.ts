@@ -1,5 +1,4 @@
-import { DataContext } from "../context";
-import { Model } from "../types";
+import { IDataContext, IObject, ISystem, IZone } from "../types";
 import { Bitmask } from "../util/bitmask";
 import { rgbToHex } from "../util/color";
 import { Section } from "../util/ini";
@@ -81,7 +80,7 @@ export const ZoneBitmask = Bitmask.define([
   "EXCLUSION2",
 ]);
 
-export class SystemZoneModel implements Model {
+export class ZoneModel implements IZone {
   #ini!: IniSystemZone;
 
   public nickname?: string;
@@ -110,18 +109,14 @@ export class SystemZoneModel implements Model {
   public densityRestriction?: number;
   public populationAdditive?: boolean;
 
-  static async from(inputs: { definition: Section }) {
-    const model = new SystemZoneModel();
+  static async from(ctx: IDataContext, inputs: { definition: Section }) {
+    const model = new ZoneModel();
     model.#ini = inputs.definition[1] as IniSystemZone;
 
     model.nickname = model.#ini.nickname;
 
-    model.name = model.#ini.ids_name
-      ? DataContext.INSTANCE.ids(model.#ini.ids_name)
-      : "";
-    model.infocard = model.#ini.ids_info
-      ? DataContext.INSTANCE.ids(model.#ini.ids_info)
-      : "";
+    model.name = model.#ini.ids_name ? ctx.ids(model.#ini.ids_name) : "";
+    model.infocard = model.#ini.ids_info ? ctx.ids(model.#ini.ids_info) : "";
     model.position = model.#ini.pos;
     model.rotate = model.#ini.rotate;
     model.visit = ZoneVisitBitmask(model.#ini.visit ?? 0);
@@ -154,7 +149,7 @@ export class SystemZoneModel implements Model {
   }
 }
 
-export class SystemObjectModel implements Model {
+export class ObjectModel implements IObject {
   #ini!: IniSystemObject;
 
   public nickname!: string;
@@ -164,17 +159,13 @@ export class SystemObjectModel implements Model {
   public rotate?: [number, number, number];
   public visit!: ReturnType<typeof ZoneVisitBitmask>;
 
-  static async from(inputs: { object: Section }) {
-    const model = new SystemObjectModel();
+  static async from(ctx: IDataContext, inputs: { object: Section }) {
+    const model = new ObjectModel();
     model.#ini = inputs.object[1] as IniSystemObject;
 
     model.nickname = model.#ini.nickname;
-    model.name = model.#ini.ids_name
-      ? DataContext.INSTANCE.ids(model.#ini.ids_name)
-      : "";
-    model.infocard = model.#ini.ids_info
-      ? DataContext.INSTANCE.ids(model.#ini.ids_info)
-      : "";
+    model.name = model.#ini.ids_name ? ctx.ids(model.#ini.ids_name) : "";
+    model.infocard = model.#ini.ids_info ? ctx.ids(model.#ini.ids_info) : "";
 
     model.position = model.#ini.pos;
     model.rotate = model.#ini.rotate;
@@ -184,7 +175,7 @@ export class SystemObjectModel implements Model {
   }
 }
 
-export class SystemModel implements Model {
+export class SystemModel implements ISystem {
   #ini!: IniUniverseSystem;
 
   public nickname!: string;
@@ -193,24 +184,27 @@ export class SystemModel implements Model {
   public position!: [number, number];
   public visit!: ReturnType<typeof ZoneVisitBitmask>;
 
-  public zones: SystemZoneModel[] = [];
+  public zones: ZoneModel[] = [];
   public bases: BaseModel[] = [];
 
-  static async from(inputs: {
-    universe: Section;
-    definition: Section[];
-    bases: Section[];
-  }) {
+  static async from(
+    ctx: IDataContext,
+    inputs: {
+      universe: Section;
+      definition: Section[];
+      bases: Section[];
+    }
+  ) {
     const model = new SystemModel();
     model.#ini = inputs.universe[1] as IniUniverseSystem;
     model.nickname = model.#ini.nickname;
     model.position = model.#ini.pos;
-    model.name = DataContext.INSTANCE.ids(model.#ini.strid_name);
-    model.infocard = DataContext.INSTANCE.ids(model.#ini.ids_info);
+    model.name = ctx.ids(model.#ini.strid_name);
+    model.infocard = ctx.ids(model.#ini.ids_info);
     model.visit = ZoneVisitBitmask(model.#ini.visit ?? 0);
 
     for (const zone of inputs.definition.filter((s) => s[0] === "zone")) {
-      model.zones.push(await SystemZoneModel.from({ definition: zone }));
+      model.zones.push(await ZoneModel.from(ctx, { definition: zone }));
     }
     for (const object of inputs.definition.filter(
       (s) => s[0] === "object" && !!s[1].base
@@ -220,7 +214,7 @@ export class SystemModel implements Model {
       );
       if (universeBase) {
         model.bases.push(
-          await BaseModel.from({
+          await BaseModel.from(ctx, {
             universe: universeBase,
             object: object,
           })

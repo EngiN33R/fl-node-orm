@@ -1,5 +1,4 @@
-import { DataContext } from "../context";
-import { Model } from "../types";
+import { IDataContext, IFaction, Model } from "../types";
 import { Section } from "../util/ini";
 
 export type IniInitialWorldGroup = {
@@ -49,17 +48,17 @@ export type IniEmpathy = {
   empathy_rate: Array<[string, number]>;
 };
 
-function mapIdsRange(range: [number, number] | undefined) {
-  const values: string[] = [];
+function genRange(range: [number, number] | undefined) {
+  const values: number[] = [];
   if (range) {
     for (let i = range[0]; i <= range[1]; i++) {
-      values.push(DataContext.INSTANCE.ids(i));
+      values.push(i);
     }
   }
   return values;
 }
 
-export class FactionModel implements Model {
+export class FactionModel implements IFaction {
   public nickname!: string;
   public name!: string;
   public infocard!: string;
@@ -77,19 +76,22 @@ export class FactionModel implements Model {
   public formations!: string[];
   public ranks!: [string, string, string];
 
-  public reputation = new Map<string, number>();
+  public reputation: Record<string, number> = {};
 
   public objectDestructionRep!: number;
   public missionSuccessRep!: number;
   public missionFailureRep!: number;
   public missionAbortRep!: number;
-  public empathy = new Map<string, number>();
+  public empathy: Record<string, number> = {};
 
-  static async from(inputs: {
-    faction: Section;
-    group: Section;
-    empathy: Section;
-  }) {
+  static async from(
+    ctx: IDataContext,
+    inputs: {
+      faction: Section;
+      group: Section;
+      empathy: Section;
+    }
+  ) {
     const model = new FactionModel();
 
     const group = inputs.group[1] as IniInitialWorldGroup;
@@ -97,8 +99,8 @@ export class FactionModel implements Model {
     const empathy = inputs.empathy[1] as IniEmpathy;
 
     model.nickname = group.nickname;
-    model.name = DataContext.INSTANCE.ids(group.ids_name);
-    model.infocard = DataContext.INSTANCE.ids(group.ids_info);
+    model.name = ctx.ids(group.ids_name);
+    model.infocard = ctx.ids(group.ids_info);
 
     model.legality = factionProp.legality as "lawful" | "unlawful";
     model.nicknamePlurality = factionProp.nickname_plurality as
@@ -113,19 +115,20 @@ export class FactionModel implements Model {
     model.mcCostume = factionProp.mc_costume;
     model.voices = factionProp.voice as string[];
 
-    model.firstNamesMale = mapIdsRange(factionProp.firstname_male);
-    model.firstNamesFemale = mapIdsRange(factionProp.firstname_female);
-    model.lastNames = mapIdsRange(factionProp.lastname);
-    model.formations = mapIdsRange(factionProp.formation_desig);
+    const ids = ctx.ids.bind(ctx);
+    model.firstNamesMale = genRange(factionProp.firstname_male).map(ids);
+    model.firstNamesFemale = genRange(factionProp.firstname_female).map(ids);
+    model.lastNames = genRange(factionProp.lastname).map(ids);
+    model.formations = genRange(factionProp.formation_desig).map(ids);
 
     model.ranks = [
-      DataContext.INSTANCE.ids(factionProp.rank_desig[0]),
-      DataContext.INSTANCE.ids(factionProp.rank_desig[1]),
-      DataContext.INSTANCE.ids(factionProp.rank_desig[2]),
+      ctx.ids(factionProp.rank_desig[0]),
+      ctx.ids(factionProp.rank_desig[1]),
+      ctx.ids(factionProp.rank_desig[2]),
     ];
 
     for (const [rep, fac] of group.rep) {
-      model.reputation.set(fac, rep);
+      model.reputation[fac] = rep;
     }
 
     model.objectDestructionRep =
@@ -138,7 +141,7 @@ export class FactionModel implements Model {
       empathy.event.find((e) => e[0] === "random_mission_abortion")?.[1] ?? 0;
 
     for (const [fac, rep] of empathy.empathy_rate) {
-      model.empathy.set(fac, rep);
+      model.empathy[fac] = rep;
     }
 
     return model;

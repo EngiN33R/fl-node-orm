@@ -1,5 +1,5 @@
 import path from "path";
-import { dumpUtf } from "../src/util/utf";
+import { dumpUtf } from "./utf";
 
 describe("utf", () => {
   it("should parse a test utf file", async () => {

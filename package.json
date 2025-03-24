@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsup",
+    "build": "rollup -c",
     "test": "cross-env DOTENV_CONFIG_PATH=.env.test jest --setupFiles dotenv/config --",
     "test-dev": "cross-env DOTENV_CONFIG_PATH=.env.test jest --setupFiles dotenv/config --watch --"
   },

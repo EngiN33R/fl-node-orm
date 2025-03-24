@@ -1,4 +1,4 @@
-import { createHashId } from "../src/util/hash";
+import { createHashId } from "./hash";
 
 describe("hash", () => {
   it("should create the correct hash id", async () => {

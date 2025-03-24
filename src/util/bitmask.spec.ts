@@ -1,4 +1,4 @@
-import { Bitmask } from "../src/util/bitmask";
+import { Bitmask } from "./bitmask";
 
 const VisitBitmask = Bitmask.define(
   [

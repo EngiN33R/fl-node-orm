@@ -1,5 +1,5 @@
 import path from "path";
-import { parseIni } from "../src/util/ini";
+import { parseIni } from "./ini";
 
 describe("INI parser", () => {
   it("should parse a system INI file", async () => {

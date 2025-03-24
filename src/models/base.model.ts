@@ -1,5 +1,4 @@
-import { DataContext } from "../context";
-import { Model } from "../types";
+import { IBase, IDataContext } from "../types";
 import { Section } from "../util/ini";
 import { IniSystemObject, ObjectVisitBitmask } from "./common";
 
@@ -10,7 +9,7 @@ type IniUniverseBase = {
   file: string;
 };
 
-export class BaseModel implements Model {
+export class BaseModel implements IBase {
   public nickname!: string;
 
   public name!: string;
@@ -21,7 +20,10 @@ export class BaseModel implements Model {
   public faction!: string;
   public visit!: ReturnType<typeof ObjectVisitBitmask>;
 
-  static async from(inputs: { universe: Section; object: Section }) {
+  static async from(
+    ctx: IDataContext,
+    inputs: { universe: Section; object: Section }
+  ) {
     const model = new BaseModel();
 
     const universe = inputs.universe[1] as IniUniverseBase;
@@ -29,9 +31,9 @@ export class BaseModel implements Model {
 
     model.nickname = universe.nickname;
 
-    model.name = DataContext.INSTANCE.ids(universe.strid_name);
+    model.name = ctx.ids(universe.strid_name);
     model.infocards = object.ids_info
-      ? DataContext.INSTANCE.idsWithRelated(object.ids_info)
+      ? ctx.idsWithRelated(object.ids_info)
       : [""];
     model.system = universe.system;
     model.position = object.pos;

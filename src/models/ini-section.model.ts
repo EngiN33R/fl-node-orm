@@ -1,7 +1,7 @@
-import { Model } from "../types";
+import { IIniSection, IIniSections, Model } from "../types";
 import { Section } from "../util/ini";
 
-export class IniSectionModel implements Model {
+export class IniSectionModel implements IIniSection {
   /**
    * Section nickname. Set to the nickname property of the INI if present,
    * or undefined otherwise.
@@ -33,15 +33,13 @@ export class IniSectionModel implements Model {
   }
 }
 
-export class IniSectionsModel implements Model {
+export class IniSectionsModel implements IIniSections {
   #rawSections: IniSectionModel[] = [];
   #sections = new Map<string, IniSectionModel[]>();
 
-  public nickname!: string;
+  nickname?: string;
 
-  public get path() {
-    return this.nickname;
-  }
+  public path!: string;
 
   public get keys() {
     return [...this.#sections.keys()];
@@ -53,7 +51,7 @@ export class IniSectionsModel implements Model {
 
   static async from(inputs: { sections: Section[]; name: Section }) {
     const model = new IniSectionsModel();
-    model.nickname = inputs.name[0];
+    model.path = inputs.name[0];
     for (const section of inputs.sections) {
       const sectionModel = await IniSectionModel.from({
         section,

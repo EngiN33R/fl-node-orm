@@ -9,4 +9,5 @@ export default defineConfig({
     sourcemap: true,
   },
   plugins: [typescript({ tsconfig: "./tsconfig.json" })],
+  external: ["path", "fs", "fs/promises", "util"],
 });

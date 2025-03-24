@@ -1,12 +1,12 @@
 import path from "path";
-import { EntityType } from "./types";
+import { Entity, EntityType, IDataContext } from "./types";
 import { parseIni } from "./util/ini";
 import { ResourceDll } from "./util/resourcedll";
 import { IniSectionsModel } from "./models/ini-section.model";
 import { SystemModel } from "./models/system.model";
 import { FactionModel } from "./models/faction.model";
 
-export class DataContext {
+export class DataContext implements IDataContext {
   static readonly INSTANCE = new DataContext();
 
   public path = "";
@@ -95,7 +95,7 @@ export class DataContext {
         continue;
       }
 
-      const faction = await FactionModel.from({
+      const faction = await FactionModel.from(this, {
         group: group.ini,
         faction: groupFactionProps,
         empathy: groupEmpathy,
@@ -105,12 +105,16 @@ export class DataContext {
 
     const dataRoot = path.join(
       "EXE",
-      cfg?.findFirst("freelancer")?.get<string>("data path")!
+      (
+        cfg?.findFirst("freelancer")?.get<string>("data path") as string
+      ).replace(/\\/g, "/")
     );
 
     // Load systems and bases
-    const universePath = cfg?.findFirst("data")?.get<string>("universe")!;
-    const universeRoot = path.join(dataRoot, universePath, "..");
+    const universePath = (
+      cfg?.findFirst("data")?.get<string>("universe") as string
+    ).replace(/\\/g, "/");
+    const universeRoot = path.dirname(path.join(dataRoot, universePath));
     const universeIni = await this.parseIni(
       `${dataRoot}/${universePath}`,
       "universe"
@@ -123,15 +127,21 @@ export class DataContext {
         continue;
       }
 
-      const definition = await this.parseIni(path.join(universeRoot, filepath));
-      const system = await SystemModel.from({
-        universe: ini.ini,
-        definition: definition.sections.map((s) => s.ini),
-        bases: bases
-          .filter((b) => b.ini[1].system === ini.nickname)
-          .map((b) => b.ini),
-      });
-      this.models.system.push(system);
+      try {
+        const definition = await this.parseIni(
+          path.join(universeRoot, filepath)
+        );
+        const system = await SystemModel.from(this, {
+          universe: ini.ini,
+          definition: definition.sections.map((s) => s.ini),
+          bases: bases
+            .filter((b) => b.ini[1].system === ini.nickname)
+            .map((b) => b.ini),
+        });
+        this.models.system.push(system);
+      } catch (e) {
+        console.warn(`Failed to load system ${ini.nickname}: ${e}`);
+      }
     }
   }
 
@@ -150,9 +160,7 @@ export class DataContext {
   }
 
   findByNickname<K extends EntityType>(type: K, nickname: string) {
-    return this.models[type].find(
-      (e) => e.nickname === nickname
-    ) as (typeof this.models)[K][number];
+    return this.models[type].find((e) => e.nickname === nickname) as Entity[K];
   }
 
   entity<K extends EntityType>(type: K) {
