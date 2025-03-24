@@ -159,9 +159,9 @@ export class ObjectModel implements IObject {
   public rotate?: [number, number, number];
   public visit!: ReturnType<typeof ZoneVisitBitmask>;
 
-  static async from(ctx: IDataContext, inputs: { object: Section }) {
+  static async from(ctx: IDataContext, inputs: { definition: Section }) {
     const model = new ObjectModel();
-    model.#ini = inputs.object[1] as IniSystemObject;
+    model.#ini = inputs.definition[1] as IniSystemObject;
 
     model.nickname = model.#ini.nickname;
     model.name = model.#ini.ids_name ? ctx.ids(model.#ini.ids_name) : "";
@@ -184,7 +184,15 @@ export class SystemModel implements ISystem {
   public position!: [number, number];
   public visit!: ReturnType<typeof ZoneVisitBitmask>;
 
+  public connections: Array<{ system: string; type: "jumpgate" | "jumphole" }> =
+    [];
+  public tradelanes: Array<{
+    startPosition: [number, number, number];
+    endPosition: [number, number, number];
+  }> = [];
+
   public zones: ZoneModel[] = [];
+  public objects: ObjectModel[] = [];
   public bases: BaseModel[] = [];
 
   static async from(
@@ -203,24 +211,61 @@ export class SystemModel implements ISystem {
     model.infocard = ctx.ids(model.#ini.ids_info);
     model.visit = ZoneVisitBitmask(model.#ini.visit ?? 0);
 
-    for (const zone of inputs.definition.filter((s) => s[0] === "zone")) {
-      model.zones.push(await ZoneModel.from(ctx, { definition: zone }));
-    }
-    for (const object of inputs.definition.filter(
-      (s) => s[0] === "object" && !!s[1].base
-    )) {
-      const universeBase = inputs.bases.find(
-        (b) => b[1].nickname === object[1].base
-      );
-      if (universeBase) {
-        model.bases.push(
-          await BaseModel.from(ctx, {
-            universe: universeBase,
-            object: object,
+    const objects = inputs.definition.filter(
+      (s) => s[0] === "object"
+    ) as Section<IniSystemObject>[];
+    const objectMap = objects.reduce(
+      (acc, cur) => {
+        if (cur[1].nickname) {
+          acc[cur[1].nickname] = cur[1];
+        }
+        return acc;
+      },
+      {} as Record<string, IniSystemObject>
+    );
+
+    for (const [, object] of objects) {
+      if (object.next_ring && !object.prev_ring) {
+        let endPosition = object.pos;
+        let latestRing = objectMap[object.next_ring];
+        while (latestRing.next_ring) {
+          latestRing = objectMap[latestRing.next_ring];
+        }
+        endPosition = latestRing.pos;
+        model.tradelanes.push({ startPosition: object.pos, endPosition });
+      }
+      if (object.goto) {
+        model.connections.push({
+          system: object.goto[0],
+          type: object.archetype.includes("hole") ? "jumphole" : "jumpgate",
+        });
+      }
+
+      if (object.base) {
+        const universeBase = inputs.bases.find(
+          (b) => b[1].nickname === object.base
+        );
+        if (universeBase) {
+          model.bases.push(
+            await BaseModel.from(ctx, {
+              universe: universeBase,
+              object: ["object", object],
+            })
+          );
+        }
+      } else {
+        model.objects.push(
+          await ObjectModel.from(ctx, {
+            definition: ["object", object],
           })
         );
       }
     }
+
+    for (const zone of inputs.definition.filter((s) => s[0] === "zone")) {
+      model.zones.push(await ZoneModel.from(ctx, { definition: zone }));
+    }
+
     return model;
   }
 }

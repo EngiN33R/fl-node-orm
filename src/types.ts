@@ -63,6 +63,21 @@ export interface ISystem extends Model {
   infocard: string;
   position: [number, number];
   visit: ReturnType<typeof ZoneVisitBitmask>;
+
+  connections: Array<{
+    system: string;
+    type: "jumpgate" | "jumphole";
+    faction?: string;
+  }>;
+  tradelanes: Array<{
+    startPosition: [number, number, number];
+    endPosition: [number, number, number];
+    faction?: string;
+  }>;
+
+  zones: IZone[];
+  objects: IObject[];
+  bases: IBase[];
 }
 
 export interface IFaction extends Model {
