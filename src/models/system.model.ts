@@ -3,7 +3,11 @@ import { Bitmask } from "../util/bitmask";
 import { rgbToHex } from "../util/color";
 import { Section } from "../util/ini";
 import { BaseModel } from "./base.model";
-import { IniSystemObject, ZoneVisitBitmask } from "./common";
+import {
+  IniSystemObject,
+  ObjectVisitBitmask,
+  ZoneVisitBitmask,
+} from "./common";
 
 type IniEncounter = [string, number, number];
 type IniFaction = [string, number];
@@ -157,7 +161,10 @@ export class ObjectModel implements IObject {
   public infocard!: string;
   public position!: [number, number, number];
   public rotate?: [number, number, number];
-  public visit!: ReturnType<typeof ZoneVisitBitmask>;
+  public visit!: ReturnType<typeof ObjectVisitBitmask>;
+  public archetype!: string;
+  public faction?: string;
+  public parent?: string;
 
   static async from(ctx: IDataContext, inputs: { definition: Section }) {
     const model = new ObjectModel();
@@ -169,7 +176,10 @@ export class ObjectModel implements IObject {
 
     model.position = model.#ini.pos;
     model.rotate = model.#ini.rotate;
-    model.visit = ZoneVisitBitmask(model.#ini.visit ?? 0);
+    model.visit = ObjectVisitBitmask(model.#ini.visit ?? 0);
+    model.archetype = model.#ini.archetype;
+    model.faction = model.#ini.reputation;
+    model.parent = model.#ini.parent;
 
     return model;
   }
@@ -182,6 +192,7 @@ export class SystemModel implements ISystem {
   public name!: string;
   public infocard!: string;
   public position!: [number, number];
+  public size!: number;
   public visit!: ReturnType<typeof ZoneVisitBitmask>;
 
   public connections: Array<{ system: string; type: "jumpgate" | "jumphole" }> =
@@ -207,6 +218,7 @@ export class SystemModel implements ISystem {
     model.#ini = inputs.universe[1] as IniUniverseSystem;
     model.nickname = model.#ini.nickname;
     model.position = model.#ini.pos;
+    model.size = 272000 / (model.#ini.navmapscale ?? 1);
     model.name = ctx.ids(model.#ini.strid_name);
     model.infocard = ctx.ids(model.#ini.ids_info);
     model.visit = ZoneVisitBitmask(model.#ini.visit ?? 0);
@@ -241,7 +253,12 @@ export class SystemModel implements ISystem {
         });
       }
 
-      if (object.base) {
+      if (
+        object.base &&
+        object.archetype !== "docking_fixture" &&
+        object.archetype !== "docking_ring" &&
+        !object.parent
+      ) {
         const universeBase = inputs.bases.find(
           (b) => b[1].nickname === object.base
         );

@@ -45,8 +45,10 @@ export class DataContext implements IDataContext {
     const cfg = await this.parseIni("EXE/freelancer.ini", "freelancer");
 
     // Load IDS strings and infocards
-    const resources = cfg?.findFirst("resources")?.asArray("dll") ?? [];
-    let i = 1;
+    const resources = ["resources.dll"].concat(
+      cfg?.findFirst("resources")?.asArray("dll") ?? []
+    );
+    let i = 0;
     for (const resource of resources) {
       const dll = await ResourceDll.fromFile(
         path.join(instancePath, "EXE", resource)

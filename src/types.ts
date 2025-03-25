@@ -45,7 +45,10 @@ export interface IObject extends Model {
   infocard: string;
   position: [number, number, number];
   rotate?: [number, number, number];
-  visit: ReturnType<typeof ZoneVisitBitmask>;
+  visit: ReturnType<typeof ObjectVisitBitmask>;
+  archetype: string;
+  faction?: string;
+  parent?: string;
 }
 
 export interface IBase extends Model {
@@ -62,6 +65,7 @@ export interface ISystem extends Model {
   name: string;
   infocard: string;
   position: [number, number];
+  size: number;
   visit: ReturnType<typeof ZoneVisitBitmask>;
 
   connections: Array<{

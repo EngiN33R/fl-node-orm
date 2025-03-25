@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "build": "rollup -c",
+    "build:dev": "nodemon --watch src/** -e ts --ignore src/**/*.spec.ts --exec npm run build",
     "test": "cross-env DOTENV_CONFIG_PATH=.env.test jest --setupFiles dotenv/config --",
-    "test-dev": "cross-env DOTENV_CONFIG_PATH=.env.test jest --setupFiles dotenv/config --watch --"
+    "test:dev": "cross-env DOTENV_CONFIG_PATH=.env.test jest --setupFiles dotenv/config --watch --"
   },
   "author": "Ilya \"EngiN33R\" Gavrikov",
   "license": "MIT",
@@ -21,6 +22,7 @@
     "eslint": "^9.23.0",
     "eslint-config-prettier": "^10.1.1",
     "jest": "^29.7.0",
+    "nodemon": "^3.1.9",
     "prettier": "^3.5.3",
     "rollup": "^4.36.0",
     "ts-jest": "^29.2.6",
