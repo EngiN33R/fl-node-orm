@@ -6,21 +6,28 @@ export interface Parser<T> {
   parse(data: ArrayBuffer): Promise<T>;
 }
 
-export interface Model {
+export interface Model<K extends EntityType> {
   nickname?: string;
+  type: K;
 }
 
 export interface ModelInstantiator {
-  from(inputs: Record<string, Section | Section[]>): Promise<Model>;
+  from<K extends EntityType>(
+    inputs: Record<string, Section | Section[]>
+  ): Promise<Model<K>>;
 }
 
-export interface IZone {
+export interface IZone extends Model<"zone"> {
+  system: string;
+
   name: string;
   infocard: string;
   position: [number, number, number];
   rotate?: [number, number, number];
   visit?: ReturnType<typeof ZoneVisitBitmask>;
   sort: number;
+  shape: "ellipsoid" | "ring" | "cylinder" | "sphere";
+  size: [number, number, number] | [number, number] | number;
 
   music?: string;
   properties?: ReturnType<typeof ZoneBitmask>;
@@ -40,7 +47,8 @@ export interface IZone {
   populationAdditive?: boolean;
 }
 
-export interface IObject extends Model {
+export interface IObject extends Model<"object"> {
+  system: string;
   name: string;
   infocard: string;
   position: [number, number, number];
@@ -51,17 +59,19 @@ export interface IObject extends Model {
   parent?: string;
 }
 
-export interface IBase extends Model {
-  name: string;
-  infocards: string[];
+export interface IBase extends Model<"base"> {
   system: string;
+  name: string;
+  infocard: string;
+  infocards: string[];
   position: [number, number, number];
   rotation: [number, number, number];
   faction: string;
+  archetype: string;
   visit: ReturnType<typeof ObjectVisitBitmask>;
 }
 
-export interface ISystem extends Model {
+export interface ISystem extends Model<"system"> {
   name: string;
   infocard: string;
   position: [number, number];
@@ -84,7 +94,7 @@ export interface ISystem extends Model {
   bases: IBase[];
 }
 
-export interface IFaction extends Model {
+export interface IFaction extends Model<"faction"> {
   name: string;
   infocard: string;
 
@@ -110,11 +120,12 @@ export interface IFaction extends Model {
   empathy: Record<string, number>;
 }
 
-export interface IIniSection extends Model {
+export interface IIniSection {
+  nickname?: string;
   ini: Section;
 }
 
-export interface IIniSections extends Model {
+export interface IIniSections {
   path: string;
   keys: string[];
   sections: IIniSection[];
@@ -132,6 +143,9 @@ export interface IIniSections extends Model {
 
 export type Entity = {
   system: ISystem;
+  zone: IZone;
+  object: IObject;
+  base: IBase;
   faction: IFaction;
 };
 
@@ -143,6 +157,11 @@ export interface IEntityQuerier<K extends EntityType> {
 }
 
 export interface IDataContext {
+  /**
+   * Register a model.
+   * @param model Model to register.
+   */
+  registerModel<K extends EntityType>(model: Entity[K]): void;
   /**
    * Find first entity of type by nickname.
    * @param type Entity type.

@@ -1,4 +1,4 @@
-import { IDataContext, IObject, ISystem, IZone } from "../types";
+import { EntityType, IDataContext, IObject, ISystem, IZone } from "../types";
 import { Bitmask } from "../util/bitmask";
 import { rgbToHex } from "../util/color";
 import { Section } from "../util/ini";
@@ -15,6 +15,11 @@ type IniFaction = [string, number];
 type IniSystemZoneEllipsoidOrRing = {
   shape: "ellipsoid" | "ring";
   size: [number, number, number];
+};
+
+type IniSystemZoneCylinder = {
+  shape: "cylinder";
+  size: [number, number];
 };
 
 type IniSystemZoneSphere = {
@@ -50,7 +55,7 @@ type IniSystemZoneCommon = {
 };
 
 export type IniSystemZone = IniSystemZoneCommon &
-  (IniSystemZoneEllipsoidOrRing | IniSystemZoneSphere);
+  (IniSystemZoneEllipsoidOrRing | IniSystemZoneCylinder | IniSystemZoneSphere);
 
 export type IniUniverseSystem = {
   nickname: string;
@@ -88,11 +93,15 @@ export class ZoneModel implements IZone {
   #ini!: IniSystemZone;
 
   public nickname?: string;
+  public type = "zone" as const;
+  public system!: string;
 
   public name!: string;
   public infocard!: string;
   public position!: [number, number, number];
   public rotate?: [number, number, number];
+  public shape!: "ellipsoid" | "ring" | "cylinder" | "sphere";
+  public size!: [number, number, number] | [number, number] | number;
   public visit?: ReturnType<typeof ZoneVisitBitmask>;
   public sort!: number;
 
@@ -113,16 +122,22 @@ export class ZoneModel implements IZone {
   public densityRestriction?: number;
   public populationAdditive?: boolean;
 
-  static async from(ctx: IDataContext, inputs: { definition: Section }) {
+  static async from(
+    ctx: IDataContext,
+    inputs: { universe: Section; definition: Section }
+  ) {
     const model = new ZoneModel();
     model.#ini = inputs.definition[1] as IniSystemZone;
 
     model.nickname = model.#ini.nickname;
+    model.system = inputs.universe[1].nickname;
 
     model.name = model.#ini.ids_name ? ctx.ids(model.#ini.ids_name) : "";
     model.infocard = model.#ini.ids_info ? ctx.ids(model.#ini.ids_info) : "";
     model.position = model.#ini.pos;
     model.rotate = model.#ini.rotate;
+    model.shape = model.#ini.shape;
+    model.size = model.#ini.size;
     model.visit = ZoneVisitBitmask(model.#ini.visit ?? 0);
     model.sort = model.#ini.sort;
 
@@ -149,6 +164,8 @@ export class ZoneModel implements IZone {
     model.densityRestriction = model.#ini.density_restriction;
     model.populationAdditive = model.#ini.population_additive;
 
+    ctx.registerModel(model);
+
     return model;
   }
 }
@@ -157,20 +174,27 @@ export class ObjectModel implements IObject {
   #ini!: IniSystemObject;
 
   public nickname!: string;
+  public type = "object" as const;
+  public system!: string;
+
   public name!: string;
   public infocard!: string;
   public position!: [number, number, number];
   public rotate?: [number, number, number];
-  public visit!: ReturnType<typeof ObjectVisitBitmask>;
   public archetype!: string;
+  public visit!: ReturnType<typeof ObjectVisitBitmask>;
   public faction?: string;
   public parent?: string;
 
-  static async from(ctx: IDataContext, inputs: { definition: Section }) {
+  static async from(
+    ctx: IDataContext,
+    inputs: { universe: Section; definition: Section }
+  ) {
     const model = new ObjectModel();
     model.#ini = inputs.definition[1] as IniSystemObject;
 
     model.nickname = model.#ini.nickname;
+    model.system = inputs.universe[1].nickname;
     model.name = model.#ini.ids_name ? ctx.ids(model.#ini.ids_name) : "";
     model.infocard = model.#ini.ids_info ? ctx.ids(model.#ini.ids_info) : "";
 
@@ -181,6 +205,8 @@ export class ObjectModel implements IObject {
     model.faction = model.#ini.reputation;
     model.parent = model.#ini.parent;
 
+    ctx.registerModel(model);
+
     return model;
   }
 }
@@ -189,6 +215,8 @@ export class SystemModel implements ISystem {
   #ini!: IniUniverseSystem;
 
   public nickname!: string;
+  public type = "system" as const;
+
   public name!: string;
   public infocard!: string;
   public position!: [number, number];
@@ -273,6 +301,7 @@ export class SystemModel implements ISystem {
       } else {
         model.objects.push(
           await ObjectModel.from(ctx, {
+            universe: inputs.universe,
             definition: ["object", object],
           })
         );
@@ -280,8 +309,15 @@ export class SystemModel implements ISystem {
     }
 
     for (const zone of inputs.definition.filter((s) => s[0] === "zone")) {
-      model.zones.push(await ZoneModel.from(ctx, { definition: zone }));
+      model.zones.push(
+        await ZoneModel.from(ctx, {
+          universe: inputs.universe,
+          definition: zone,
+        })
+      );
     }
+
+    ctx.registerModel(model);
 
     return model;
   }

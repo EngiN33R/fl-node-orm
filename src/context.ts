@@ -1,5 +1,11 @@
 import path from "path";
-import { Entity, EntityType, IDataContext } from "./types";
+import {
+  Entity,
+  EntityType,
+  IDataContext,
+  IEntityQuerier,
+  Model,
+} from "./types";
 import { parseIni } from "./util/ini";
 import { ResourceDll } from "./util/resourcedll";
 import { IniSectionsModel } from "./models/ini-section.model";
@@ -12,11 +18,21 @@ export class DataContext implements IDataContext {
 
   public path!: string;
 
-  private models: { [K in EntityType]: Entity[K][] } = {
+  private models: { [K in keyof Entity]: Entity[K][] } = {
     faction: [],
     system: [],
+    object: [],
+    zone: [],
+    base: [],
     // commodity: [],
     // equipment: [],
+  };
+  private maps: { [K in keyof Entity]: Map<string, Entity[K]> } = {
+    faction: new Map(),
+    system: new Map(),
+    object: new Map(),
+    zone: new Map(),
+    base: new Map(),
   };
 
   private strings: Map<number, string> = new Map();
@@ -110,12 +126,11 @@ export class DataContext implements IDataContext {
         continue;
       }
 
-      const faction = await FactionModel.from(this, {
+      await FactionModel.from(this, {
         group: group.ini,
         faction: groupFactionProps,
         empathy: groupEmpathy,
       });
-      this.models.faction.push(faction);
     }
 
     const dataRoot = path.join(
@@ -146,14 +161,13 @@ export class DataContext implements IDataContext {
         const definition = await this.parseIni(
           path.join(universeRoot, filepath)
         );
-        const system = await SystemModel.from(this, {
+        await SystemModel.from(this, {
           universe: ini.ini,
           definition: definition.sections.map((s) => s.ini),
           bases: bases
             .filter((b) => b.ini[1].system === ini.nickname)
             .map((b) => b.ini),
         });
-        this.models.system.push(system);
       } catch (e) {
         console.warn(`Failed to load system ${ini.nickname}: ${e}`);
       }
@@ -183,6 +197,13 @@ export class DataContext implements IDataContext {
     return tree;
   }
 
+  registerModel<K extends EntityType>(model: Entity[K]) {
+    this.models[model.type as K].push(model);
+    if (model.nickname) {
+      this.maps[model.type as K].set(model.nickname, model);
+    }
+  }
+
   registerBinary(handle: string, data?: ArrayBuffer) {
     if (data) {
       this.binaries.set(handle, data);
@@ -202,10 +223,10 @@ export class DataContext implements IDataContext {
   }
 
   findByNickname<K extends EntityType>(type: K, nickname: string) {
-    return this.models[type].find((e) => e.nickname === nickname) as Entity[K];
+    return this.maps[type].get(nickname);
   }
 
-  entity<K extends EntityType>(type: K) {
+  entity<K extends EntityType>(type: K): IEntityQuerier<K> {
     return {
       findAll: () => this.models[type],
       findByNickname: (nickname: string) =>

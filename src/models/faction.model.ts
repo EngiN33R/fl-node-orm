@@ -60,6 +60,8 @@ function genRange(range: [number, number] | undefined) {
 
 export class FactionModel implements IFaction {
   public nickname!: string;
+  public type = "faction" as const;
+
   public name!: string;
   public infocard!: string;
 
@@ -143,6 +145,8 @@ export class FactionModel implements IFaction {
     for (const [fac, rep] of empathy.empathy_rate) {
       model.empathy[fac] = rep;
     }
+
+    ctx.registerModel(model);
 
     return model;
   }
