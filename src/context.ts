@@ -1,22 +1,36 @@
 import path from "path";
 import {
+  AnyRecordMap,
   Entity,
   EntityType,
   IDataContext,
   IEntityQuerier,
+  IIniSection,
+  IIniSections,
   Model,
 } from "./types";
-import { parseIni } from "./util/ini";
+import { parseFile, parseIni } from "./util/ini";
 import { ResourceDll } from "./util/resourcedll";
-import { IniSectionsModel } from "./models/ini-section.model";
+import { IniSectionModel, IniSectionsModel } from "./models/ini-section.model";
 import { SystemModel } from "./models/system.model";
 import { FactionModel } from "./models/faction.model";
 import { parseUtf, UtfTree } from "./util/utf";
+import { parseSystemRange, parseTerritorySections } from "./util/data";
+import { EquipmentModel, PARSED_SECTION_KEYS } from "./models/equipment.model";
+import {
+  IniConfigShape,
+  IniEquipmentShape,
+  IniShiparch,
+  IniSystemShape,
+  IniUniverseShape,
+} from "./ini-types";
+import { ShipModel } from "./models/ship.model";
 
 export class DataContext implements IDataContext {
   static readonly INSTANCE = new DataContext();
 
   public path!: string;
+  public dataPath!: string;
 
   private models: { [K in keyof Entity]: Entity[K][] } = {
     faction: [],
@@ -24,8 +38,8 @@ export class DataContext implements IDataContext {
     object: [],
     zone: [],
     base: [],
-    // commodity: [],
-    // equipment: [],
+    equipment: [],
+    ship: [],
   };
   private maps: { [K in keyof Entity]: Map<string, Entity[K]> } = {
     faction: new Map(),
@@ -33,6 +47,8 @@ export class DataContext implements IDataContext {
     object: new Map(),
     zone: new Map(),
     base: new Map(),
+    equipment: new Map(),
+    ship: new Map(),
   };
 
   private strings: Map<number, string> = new Map();
@@ -58,11 +74,17 @@ export class DataContext implements IDataContext {
 
     this.path = instancePath;
 
-    const cfg = await this.parseIni("EXE/freelancer.ini", "freelancer");
+    const cfg = await IniSectionsModel.from<IniConfigShape>(this, {
+      sections: await parseIni(path.join(this.path, "EXE/freelancer.ini")),
+      name: ["freelancer", {}],
+    });
+    if (!cfg) {
+      throw new Error("Failed to load freelancer.ini");
+    }
 
     // Load IDS strings and infocards
     const resources = ["resources.dll"].concat(
-      cfg?.findFirst("resources")?.asArray("dll") ?? []
+      cfg.findFirst("resources")!.asArray("dll")
     );
     let i = 0;
     for (const resource of resources) {
@@ -78,9 +100,17 @@ export class DataContext implements IDataContext {
       i++;
     }
 
+    this.dataPath = path.join(
+      "EXE",
+      (cfg?.findFirst("freelancer")?.get("data path") as string).replace(
+        /\\/g,
+        "/"
+      )
+    );
+
     // Load assorted binary files
     const navmapUtf = await this.loadUtf(
-      "DATA/INTERFACE/NEURONET/NAVMAP/NEWNAVMAP/nav_prettymap.3db",
+      "INTERFACE/NEURONET/NAVMAP/NEWNAVMAP/nav_prettymap.3db",
       "navmap"
     );
     this.registerBinary(
@@ -89,12 +119,10 @@ export class DataContext implements IDataContext {
     );
 
     // Load mbases
-    await this.parseIni("DATA/MISSIONS/mbases.ini", "mbases");
+    await this.parseIni("MISSIONS/mbases.ini", "mbases");
 
     // Load infocard map for supplementary base infocards
-    const infocardMapIni = await this.parseIni(
-      "DATA/INTERFACE/infocardmap.ini"
-    );
+    const infocardMapIni = await this.parseIni("/INTERFACE/infocardmap.ini");
     const map = infocardMapIni.findFirst("infocardmaptable")?.get("map") as [
       number,
       number,
@@ -103,29 +131,28 @@ export class DataContext implements IDataContext {
       this.infocardMap.set(key, value);
     }
 
+    // Load faction properties, reputations and empathy
     const factionProps = await this.parseIni(
-      "DATA/MISSIONS/faction_prop.ini",
+      "MISSIONS/faction_prop.ini",
       "faction_prop"
     );
     const initialWorld = await this.parseIni(
-      "DATA/initialworld.ini",
+      "initialworld.ini",
       "initialworld"
     );
-    const empathy = await this.parseIni("DATA/MISSIONS/empathy.ini", "empathy");
-
+    const empathy = await this.parseIni("MISSIONS/empathy.ini", "empathy");
     for (const group of initialWorld.findAll("group")) {
       const groupFactionProps = factionProps.findFirst(
         "factionprops",
-        (s) => s.ini[1].affiliation === group.get<string>("nickname")
+        (s) => s.get("affiliation") === group.get("nickname")
       )?.ini;
       const groupEmpathy = empathy.findFirst(
         "repchangeeffects",
-        (s) => s.ini[1].group === group.get<string>("nickname")
+        (s) => s.get("group") === group.get("nickname")
       )?.ini;
       if (!groupFactionProps || !groupEmpathy) {
         continue;
       }
-
       await FactionModel.from(this, {
         group: group.ini,
         faction: groupFactionProps,
@@ -133,40 +160,61 @@ export class DataContext implements IDataContext {
       });
     }
 
-    const dataRoot = path.join(
-      "EXE",
-      (
-        cfg?.findFirst("freelancer")?.get<string>("data path") as string
-      ).replace(/\\/g, "/")
-    );
+    // Import equipment, ships and goods
+    const equipmentPaths = cfg?.findFirst("data")?.asArray("equipment") ?? [];
+    const shipsPaths = cfg?.findFirst("data")?.asArray("ships") ?? [];
+    const goodsPaths = cfg?.findFirst("data")?.get("goods") ?? [];
+    const marketsPaths = cfg?.findFirst("data")?.get("markets") ?? [];
+    for (const path of equipmentPaths) {
+      await this.parseIni(path, "equipment");
+    }
+    for (const path of shipsPaths) {
+      await this.parseIni(path, "ships");
+    }
+    for (const path of goodsPaths) {
+      await this.parseIni(path, "goods");
+    }
+    for (const path of marketsPaths) {
+      await this.parseIni(path, "markets");
+    }
+    const ships = this.ini<{ ship: IniShiparch }>("ships");
+
+    await EquipmentModel.fromAll(this);
+
+    for (const arch of ships?.findAll("ship") ?? []) {
+      await ShipModel.from(this, {
+        arch,
+      });
+    }
 
     // Load systems and bases
     const universePath = (
-      cfg?.findFirst("data")?.get<string>("universe") as string
+      cfg?.findFirst("data")?.get("universe") as string
     ).replace(/\\/g, "/");
-    const universeRoot = path.dirname(path.join(dataRoot, universePath));
-    const universeIni = await this.parseIni(
-      `${dataRoot}/${universePath}`,
+    const universeRoot = path.dirname(universePath);
+    const universeIni = await this.parseIni<IniUniverseShape>(
+      universePath,
       "universe"
     );
-    const systems = universeIni.findAll("system");
-    const bases = universeIni.findAll("base");
-    for (const ini of systems) {
-      const filepath = ini.get<string>("file");
+    const territory = await parseFile(
+      path.join(this.path, `${this.dataPath}/${universeRoot}/territory.ini`)
+    );
+    const territoryMap = parseTerritorySections(territory, this.ids.bind(this));
+    for (const ini of universeIni.findAll("system")) {
+      const filepath = ini.get("file");
       if (!filepath) {
         continue;
       }
 
       try {
-        const definition = await this.parseIni(
-          path.join(universeRoot, filepath)
+        const definition = await this.parseIni<IniSystemShape>(
+          path.join(universeRoot, filepath),
+          `universe_${ini.nickname}`
         );
         await SystemModel.from(this, {
-          universe: ini.ini,
-          definition: definition.sections.map((s) => s.ini),
-          bases: bases
-            .filter((b) => b.ini[1].system === ini.nickname)
-            .map((b) => b.ini),
+          universe: ini,
+          definition,
+          territory: ini.nickname ? territoryMap[ini.nickname] : "Unknown",
         });
       } catch (e) {
         console.warn(`Failed to load system ${ini.nickname}: ${e}`);
@@ -174,21 +222,30 @@ export class DataContext implements IDataContext {
     }
   }
 
-  async parseIni(relativePath: string, nickname?: string) {
+  async parseIni<S extends AnyRecordMap = AnyRecordMap>(
+    relativePath: string,
+    nickname?: string
+  ): Promise<IIniSections<S>> {
     relativePath = relativePath.replace(/\\/g, "/");
-    const ini = await IniSectionsModel.from({
-      sections: await parseIni(path.join(this.path, relativePath)),
+    const ini = await IniSectionsModel.from(this, {
+      sections: await parseIni(
+        path.join(this.path, this.dataPath, relativePath)
+      ),
       name: [relativePath, {}],
     });
     this.inis.set(relativePath, ini);
     if (nickname) {
-      this.inis.set(nickname, ini);
+      if (this.inis.has(nickname)) {
+        this.inis.get(nickname)!.append(ini);
+      } else {
+        this.inis.set(nickname, ini);
+      }
     }
-    return ini;
+    return ini as unknown as IIniSections<S>;
   }
 
   async loadUtf(relativePath: string, nickname?: string) {
-    const filepath = path.join(this.path, relativePath);
+    const filepath = path.join(this.path, this.dataPath, relativePath);
     const tree = await parseUtf(filepath);
     this.utfs.set(relativePath, tree);
     if (nickname) {
@@ -210,8 +267,8 @@ export class DataContext implements IDataContext {
     }
   }
 
-  ini(relativePath: string) {
-    return this.inis.get(relativePath);
+  ini<S extends AnyRecordMap = AnyRecordMap>(relativePath: string) {
+    return this.inis.get(relativePath) as IIniSections<S> | undefined;
   }
 
   utf(relativePath: string, key: string) {

@@ -1,6 +1,6 @@
-import { IBase, IDataContext } from "../types";
-import { Section } from "../util/ini";
-import { IniSystemObject, ObjectVisitBitmask } from "./common";
+import { IniSystemObject } from "../ini-types";
+import { IBase, IDataContext, IIniSection } from "../types";
+import { ObjectVisitBitmask } from "./common";
 
 type IniUniverseBase = {
   nickname: string;
@@ -25,12 +25,15 @@ export class BaseModel implements IBase {
 
   static async from(
     ctx: IDataContext,
-    inputs: { universe: Section; object: Section }
+    inputs: {
+      universe: IIniSection<IniUniverseBase>;
+      definition: IIniSection<IniSystemObject>;
+    }
   ) {
     const model = new BaseModel();
 
-    const universe = inputs.universe[1] as IniUniverseBase;
-    const object = inputs.object[1] as IniSystemObject;
+    const universe = inputs.universe.ini[1];
+    const object = inputs.definition.ini[1];
 
     model.nickname = universe.nickname;
 

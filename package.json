@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "rollup -c",
-    "build:dev": "nodemon --watch 'src/**' -e ts --ignore 'src/**/*.spec.ts' --exec npm run build",
+    "build:dev": "nodemon --watch \"src/**\" -e ts --ignore \"src/**/*.spec.ts\" --exec npm run build",
     "test": "cross-env DOTENV_CONFIG_PATH=.env.test jest --setupFiles dotenv/config --",
     "test:dev": "cross-env DOTENV_CONFIG_PATH=.env.test jest --setupFiles dotenv/config --watch --"
   },

@@ -2,9 +2,9 @@ import { ObjectVisitBitmask, ZoneVisitBitmask } from "./models/common";
 import { ZoneBitmask } from "./models/system.model";
 import { Section } from "./util/ini";
 
-export interface Parser<T> {
-  parse(data: ArrayBuffer): Promise<T>;
-}
+export type AnyRecord = Record<string, unknown>;
+export type AnyRecordMap = Record<string, OptArray<AnyRecord>>;
+export type OptArray<T> = Array<T> | T;
 
 export interface Model<K extends EntityType> {
   nickname?: string;
@@ -26,7 +26,7 @@ export interface IZone extends Model<"zone"> {
   rotate?: [number, number, number];
   visit?: ReturnType<typeof ZoneVisitBitmask>;
   sort: number;
-  shape: "ellipsoid" | "ring" | "cylinder" | "sphere";
+  shape: "ellipsoid" | "ring" | "cylinder" | "sphere" | "box";
   size: [number, number, number] | [number, number] | number;
 
   music?: string;
@@ -45,6 +45,15 @@ export interface IZone extends Model<"zone"> {
   reliefTime?: number;
   densityRestriction?: number;
   populationAdditive?: boolean;
+
+  missionType?: string | string[];
+  vignetteType?: string;
+
+  loot?: {
+    commodity: string;
+    count: [number, number];
+    difficulty: number;
+  };
 }
 
 export interface IObject extends Model<"object"> {
@@ -57,6 +66,12 @@ export interface IObject extends Model<"object"> {
   archetype: string;
   faction?: string;
   parent?: string;
+
+  goto?: {
+    system: string;
+    object: string;
+    effect: string;
+  };
 }
 
 export interface IBase extends Model<"base"> {
@@ -74,6 +89,7 @@ export interface IBase extends Model<"base"> {
 export interface ISystem extends Model<"system"> {
   name: string;
   infocard: string;
+  territory: string;
   position: [number, number];
   size: number;
   visit: ReturnType<typeof ZoneVisitBitmask>;
@@ -120,25 +136,182 @@ export interface IFaction extends Model<"faction"> {
   empathy: Record<string, number>;
 }
 
-export interface IIniSection {
-  nickname?: string;
-  ini: Section;
+export interface IShip extends Model<"ship"> {
+  name: string;
+  infocard: string;
+  stats: string;
+  class: string;
+  hitPoints: number;
+  maxNanobots: number;
+  maxBatteries: number;
+  holdSize: number;
+  dockingType: "DOCK" | "MED_MOOR" | "LARGE_MOOR";
+  hardpoints: Array<{
+    id: string;
+    type: string;
+  }>;
 }
 
-export interface IIniSections {
-  path: string;
-  keys: string[];
-  sections: IIniSection[];
+export interface IEquipment extends Model<"equipment"> {
+  name: string;
+  infocard: string;
 
-  findAll(name: string, predicate?: (s: IIniSection) => boolean): IIniSection[];
-  findFirst(
-    name: string,
-    predicate?: (s: IIniSection) => boolean
-  ): IIniSection | undefined;
-  findFirstWithChildren(
-    name: string,
-    predicate?: (s: IIniSection) => boolean
-  ): [IIniSection, IIniSection[]] | [undefined, []];
+  hardpoint: string;
+  hitpoints: number;
+  mass: number;
+  volume: number;
+
+  kind:
+    | "gun"
+    | "turret"
+    | "missile"
+    | "mine"
+    | "cm"
+    | "shield"
+    | "power"
+    | "engine"
+    | "thruster"
+    | "scanner"
+    | "tractor"
+    | "battery"
+    | "nanobots"
+    | "armor"
+    | "cloak";
+  class: string;
+
+  gun?: {
+    damageType: string;
+    powerUsage: number;
+    hullDamage: number;
+    shieldDamage: number;
+    refireRate: number;
+    range: number;
+    speed: number;
+    turnRate: number;
+  };
+  turret?: {
+    damageType: string;
+    powerUsage: number;
+    hullDamage: number;
+    shieldDamage: number;
+    refireRate: number;
+    range: number;
+    speed: number;
+    turnRate: number;
+  };
+  missile?: {
+    hullDamage: number;
+    shieldDamage: number;
+    refireRate: number;
+    seekRange: number;
+    speed: number;
+    explosionRadius: number;
+    munitionTurnRate: number;
+  };
+  mine?: {
+    hullDamage: number;
+    shieldDamage: number;
+    seekRange: number;
+    detonationDistance: number;
+    explosionRadius: number;
+    speed: number;
+    refireRate: number;
+    lifetime: number;
+    safeTime: number;
+  };
+  cm?: {
+    range: number;
+    diversion: number;
+    lifetime: number;
+    refireRate: number;
+    powerUsage: number;
+  };
+  shield?: {
+    type: string;
+    capacity: number;
+    regeneration: number;
+    rebuildTime: number;
+    constantPowerUsage: number;
+    rebuildPowerUsage: number;
+  };
+  power?: {
+    capacity: number;
+    chargeRate: number;
+    thrustCapacity: number;
+    thrustChargeRate: number;
+  };
+  engine?: {
+    cruiseSpeed: number;
+    maxForce: number;
+  };
+  thruster?: {
+    speed: number;
+    powerUsage: number;
+  };
+  scanner?: {
+    range: number;
+    cargoScanRange: number;
+  };
+  tractor?: {
+    range: number;
+    speed: number;
+  };
+  battery?: {
+    hitpoints: number;
+  };
+  nanobots?: {
+    hitpoints: number;
+  };
+  armor?: {
+    scale: number;
+  };
+  cloak?: {
+    powerUsage: number;
+  };
+}
+
+export type ForcedArray<T> = T extends any[] ? T : Array<T>;
+export type Unarray<T> = T extends any[] ? T[number] : T;
+
+export interface IIniSection<
+  S extends AnyRecord = AnyRecord,
+  K extends string = string,
+> {
+  nickname?: string;
+  ini: Section<S, K>;
+  name: string;
+
+  get<K extends keyof S>(key: K): S[K];
+  ids<K extends keyof S>(key: K): string;
+  as<V, K extends keyof S = keyof S>(key: K): V;
+  asArray<K extends keyof S>(key: K): ForcedArray<S[K]>;
+  asSingle<K extends keyof S>(key: K): Unarray<S[K]>;
+}
+
+export interface IIniSections<S extends AnyRecordMap = AnyRecordMap> {
+  path: string;
+  keys: (keyof S)[];
+  sections: IIniSection<Unarray<S[keyof S]>>[];
+
+  append(sections: IIniSections<S>): void;
+  findAll<K extends keyof S>(
+    name: K,
+    predicate?: (
+      s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
+    ) => boolean
+  ): IIniSection<Unarray<S[K]>, K extends string ? K : string>[];
+  findFirst<K extends keyof S>(
+    name: K,
+    predicate?: (
+      s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
+    ) => boolean
+  ): IIniSection<Unarray<S[K]>, K extends string ? K : string> | undefined;
+  findFirstWithChildren<K extends keyof S>(
+    name: K,
+    predicate?: (s: IIniSection<Unarray<S[K]>>) => boolean
+  ):
+    | [IIniSection<Unarray<S[K]>>, IIniSection<Unarray<S[keyof S]>>[]]
+    | [undefined, []];
 }
 
 export type Entity = {
@@ -147,6 +320,8 @@ export type Entity = {
   object: IObject;
   base: IBase;
   faction: IFaction;
+  equipment: IEquipment;
+  ship: IShip;
 };
 
 export type EntityType = keyof Entity;
@@ -157,6 +332,9 @@ export interface IEntityQuerier<K extends EntityType> {
 }
 
 export interface IDataContext {
+  path: string;
+  dataPath: string;
+
   /**
    * Register a model.
    * @param model Model to register.
@@ -185,7 +363,9 @@ export interface IDataContext {
    * Get model for raw INI file.
    * @param handle INI file handle or path relative to instance root.
    */
-  ini(handle: string): IIniSections | undefined;
+  ini<S extends AnyRecordMap = AnyRecordMap>(
+    handle: string
+  ): IIniSections<S> | undefined;
   /**
    * Get data for a UTF node.
    * @param handle File handle or path relative to instance root.
@@ -196,5 +376,9 @@ export interface IDataContext {
    * @param handle Binary data handle.
    */
   binary(handle: string): ArrayBuffer | undefined;
+  parseIni<S extends AnyRecordMap = AnyRecordMap>(
+    relativePath: string,
+    nickname?: string
+  ): Promise<IIniSections<S>>;
   entity<K extends EntityType>(type: K): IEntityQuerier<K>;
 }

@@ -1,52 +1,6 @@
+import { IniEmpathy, IniFactionProp, IniInitialWorldGroup } from "../ini-types";
 import { IDataContext, IFaction, Model } from "../types";
 import { Section } from "../util/ini";
-
-export type IniInitialWorldGroup = {
-  nickname: string;
-  ids_name: number;
-  ids_info: number;
-  ids_short_name: number;
-  rep: Array<[number, string]>;
-};
-
-export type IniFactionProp = {
-  affiliation: string;
-  legality: string;
-  nickname_plurality: string;
-  msg_id_prefix: string;
-  jump_preference: string;
-  npc_ship: string | string[];
-  voice: string | string[];
-  mc_costume: string;
-  space_costume: number | number[];
-  firstname_male: [number, number];
-  firstname_female: [number, number];
-  lastname: [number, number];
-  rank_desig: [number, number, number, number, number];
-  formation_desig: [number, number];
-  large_ship_desig: number | number[];
-  large_ship_names: number | number[];
-  scan_for_cargo: string | string[];
-  scan_announce: "true" | "false";
-  scan_chance: number;
-  formation: [string, string] | [string, string][];
-};
-
-export type IniEmpathy = {
-  group: string;
-  event: Array<
-    [
-      (
-        | "object_destruction"
-        | "random_mission_success"
-        | "random_mission_failure"
-        | "random_mission_abortion"
-      ),
-      number,
-    ]
-  >;
-  empathy_rate: Array<[string, number]>;
-};
 
 function genRange(range: [number, number] | undefined) {
   const values: number[] = [];

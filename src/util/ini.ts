@@ -14,10 +14,10 @@ const SECTION_NAME_END = "]";
 type PathInput = string | string[];
 type Value = string | number | boolean;
 export type Entry = [string, Value | Value[]];
-export type Section<T extends Record<string, any> = Record<string, any>> = [
-  string,
-  T,
-];
+export type Section<
+  T extends Record<string, any> = Record<string, any>,
+  K extends string = string,
+> = [K, T];
 export type ParsedSection = [string, Entry[]];
 
 // Cache implementation

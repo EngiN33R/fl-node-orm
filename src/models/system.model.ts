@@ -1,72 +1,24 @@
-import { EntityType, IDataContext, IObject, ISystem, IZone } from "../types";
+import {
+  IniSystemObject,
+  IniSystemShape,
+  IniSystemZone,
+  IniUniverseShape,
+  IniUniverseSystem,
+} from "../ini-types";
+import {
+  EntityType,
+  IDataContext,
+  IIniSection,
+  IIniSections,
+  IObject,
+  ISystem,
+  IZone,
+} from "../types";
 import { Bitmask } from "../util/bitmask";
 import { rgbToHex } from "../util/color";
 import { Section } from "../util/ini";
 import { BaseModel } from "./base.model";
-import {
-  IniSystemObject,
-  ObjectVisitBitmask,
-  ZoneVisitBitmask,
-} from "./common";
-
-type IniEncounter = [string, number, number];
-type IniFaction = [string, number];
-
-type IniSystemZoneEllipsoidOrRing = {
-  shape: "ellipsoid" | "ring";
-  size: [number, number, number];
-};
-
-type IniSystemZoneCylinder = {
-  shape: "cylinder";
-  size: [number, number];
-};
-
-type IniSystemZoneSphere = {
-  shape: "sphere";
-  size: number;
-};
-
-type IniSystemZoneCommon = {
-  nickname: string;
-  ids_name?: number;
-  ids_info?: number;
-  pos: [number, number, number];
-  rotate?: [number, number, number];
-  sort: number;
-  toughness?: number;
-  density?: number;
-  repop_time?: number;
-  max_battle_size?: number;
-  pop_type?: string | string[];
-  music?: string;
-  property_flags?: number;
-  property_fog_color?: [number, number, number];
-  spacedust?: string;
-  spacedust_maxparticles?: number;
-  edge_fraction?: number;
-  visit?: number;
-  damage?: number;
-  relief_time?: number;
-  density_restriction?: number;
-  population_additive?: boolean;
-  encounter?: IniEncounter | IniEncounter[];
-  faction?: IniFaction | IniFaction[];
-};
-
-export type IniSystemZone = IniSystemZoneCommon &
-  (IniSystemZoneEllipsoidOrRing | IniSystemZoneCylinder | IniSystemZoneSphere);
-
-export type IniUniverseSystem = {
-  nickname: string;
-  file: string;
-  pos: [number, number];
-  visit?: number;
-  strid_name: number;
-  ids_info: number;
-  navmapscale?: number;
-  msg_id_prefix?: string;
-};
+import { ObjectVisitBitmask, ZoneVisitBitmask } from "./common";
 
 export const ZoneBitmask = Bitmask.define([
   "DENSITY_LOW",
@@ -100,7 +52,7 @@ export class ZoneModel implements IZone {
   public infocard!: string;
   public position!: [number, number, number];
   public rotate?: [number, number, number];
-  public shape!: "ellipsoid" | "ring" | "cylinder" | "sphere";
+  public shape!: "ellipsoid" | "ring" | "cylinder" | "sphere" | "box";
   public size!: [number, number, number] | [number, number] | number;
   public visit?: ReturnType<typeof ZoneVisitBitmask>;
   public sort!: number;
@@ -122,15 +74,24 @@ export class ZoneModel implements IZone {
   public densityRestriction?: number;
   public populationAdditive?: boolean;
 
+  public missionType?: string;
+  public vignetteType?: string;
+
+  public loot?: {
+    commodity: string;
+    count: [number, number];
+    difficulty: number;
+  };
+
   static async from(
     ctx: IDataContext,
-    inputs: { universe: Section; definition: Section }
+    inputs: { system: string; definition: IIniSection<IniSystemZone> }
   ) {
     const model = new ZoneModel();
-    model.#ini = inputs.definition[1] as IniSystemZone;
+    model.#ini = inputs.definition.ini[1];
 
     model.nickname = model.#ini.nickname;
-    model.system = inputs.universe[1].nickname;
+    model.system = inputs.system;
 
     model.name = model.#ini.ids_name ? ctx.ids(model.#ini.ids_name) : "";
     model.infocard = model.#ini.ids_info ? ctx.ids(model.#ini.ids_info) : "";
@@ -164,6 +125,25 @@ export class ZoneModel implements IZone {
     model.densityRestriction = model.#ini.density_restriction;
     model.populationAdditive = model.#ini.population_additive;
 
+    model.missionType = model.#ini.mission_type;
+    model.vignetteType = model.#ini.vignette_type;
+
+    const zoneDefPath = ctx
+      .ini<IniSystemShape>(`universe_${model.system}`)
+      ?.findFirst("asteroids", (s) => s.get("zone") === model.nickname)
+      ?.get("file");
+    if (zoneDefPath) {
+      const zoneDef = await ctx.parseIni(zoneDefPath);
+      const loot = zoneDef.findFirst("lootablezone");
+      if (loot) {
+        model.loot = {
+          commodity: loot?.get("dynamic_loot_commodity") as string,
+          count: loot?.get("dynamic_loot_count") as [number, number],
+          difficulty: loot?.get("dynamic_loot_difficulty") as number,
+        };
+      }
+    }
+
     ctx.registerModel(model);
 
     return model;
@@ -186,15 +166,21 @@ export class ObjectModel implements IObject {
   public faction?: string;
   public parent?: string;
 
+  public goto?: {
+    system: string;
+    object: string;
+    effect: string;
+  };
+
   static async from(
     ctx: IDataContext,
-    inputs: { universe: Section; definition: Section }
+    inputs: { system: string; definition: IIniSection<IniSystemObject> }
   ) {
     const model = new ObjectModel();
-    model.#ini = inputs.definition[1] as IniSystemObject;
+    model.#ini = inputs.definition.ini[1];
 
     model.nickname = model.#ini.nickname;
-    model.system = inputs.universe[1].nickname;
+    model.system = inputs.system;
     model.name = model.#ini.ids_name ? ctx.ids(model.#ini.ids_name) : "";
     model.infocard = model.#ini.ids_info ? ctx.ids(model.#ini.ids_info) : "";
 
@@ -204,6 +190,14 @@ export class ObjectModel implements IObject {
     model.archetype = model.#ini.archetype;
     model.faction = model.#ini.reputation;
     model.parent = model.#ini.parent;
+
+    if (model.#ini.goto) {
+      model.goto = {
+        system: model.#ini.goto[0],
+        object: model.#ini.goto[1],
+        effect: model.#ini.goto[2],
+      };
+    }
 
     ctx.registerModel(model);
 
@@ -219,6 +213,7 @@ export class SystemModel implements ISystem {
 
   public name!: string;
   public infocard!: string;
+  public territory!: string;
   public position!: [number, number];
   public size!: number;
   public visit!: ReturnType<typeof ZoneVisitBitmask>;
@@ -237,39 +232,45 @@ export class SystemModel implements ISystem {
   static async from(
     ctx: IDataContext,
     inputs: {
-      universe: Section;
-      definition: Section[];
-      bases: Section[];
+      universe: IIniSection<IniUniverseSystem>;
+      definition: IIniSections<IniSystemShape>;
+      territory: string;
     }
   ) {
+    const bases =
+      ctx
+        .ini<IniUniverseShape>("universe")
+        ?.findAll(
+          "base",
+          (s) => s.get("system") === inputs.universe.get("nickname")
+        ) ?? [];
+
     const model = new SystemModel();
-    model.#ini = inputs.universe[1] as IniUniverseSystem;
+    model.#ini = inputs.universe.ini[1];
     model.nickname = model.#ini.nickname;
     model.position = model.#ini.pos;
     model.size = 272000 / (model.#ini.navmapscale ?? 1);
     model.name = ctx.ids(model.#ini.strid_name);
     model.infocard = ctx.ids(model.#ini.ids_info);
+    model.territory = inputs.territory;
     model.visit = ZoneVisitBitmask(model.#ini.visit ?? 0);
 
-    const objects = inputs.definition.filter(
-      (s) => s[0] === "object"
-    ) as Section<IniSystemObject>[];
+    const objects = inputs.definition.findAll("object");
     const objectMap = objects.reduce(
       (acc, cur) => {
-        if (cur[1].nickname) {
-          acc[cur[1].nickname] = cur[1];
-        }
+        acc[cur.get("nickname")] = cur;
         return acc;
       },
-      {} as Record<string, IniSystemObject>
+      {} as Record<string, IIniSection<IniSystemObject>>
     );
 
-    for (const [, object] of objects) {
+    for (const definition of objects) {
+      const object = definition.ini[1];
       if (object.next_ring && !object.prev_ring) {
         let endPosition = object.pos;
-        let latestRing = objectMap[object.next_ring];
+        let latestRing = objectMap[object.next_ring].ini[1];
         while (latestRing.next_ring) {
-          latestRing = objectMap[latestRing.next_ring];
+          latestRing = objectMap[latestRing.next_ring].ini[1];
         }
         endPosition = latestRing.pos;
         model.tradelanes.push({ startPosition: object.pos, endPosition });
@@ -287,32 +288,32 @@ export class SystemModel implements ISystem {
         object.archetype !== "docking_ring" &&
         !object.parent
       ) {
-        const universeBase = inputs.bases.find(
-          (b) => b[1].nickname === object.base
+        const universeBase = bases.find(
+          (b) => b.get("nickname") === object.base
         );
         if (universeBase) {
           model.bases.push(
             await BaseModel.from(ctx, {
               universe: universeBase,
-              object: ["object", object],
+              definition,
             })
           );
         }
       } else {
         model.objects.push(
           await ObjectModel.from(ctx, {
-            universe: inputs.universe,
-            definition: ["object", object],
+            system: inputs.universe.get("nickname"),
+            definition,
           })
         );
       }
     }
 
-    for (const zone of inputs.definition.filter((s) => s[0] === "zone")) {
+    for (const definition of inputs.definition.findAll("zone")) {
       model.zones.push(
         await ZoneModel.from(ctx, {
-          universe: inputs.universe,
-          definition: zone,
+          system: inputs.universe.get("nickname"),
+          definition,
         })
       );
     }

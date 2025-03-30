@@ -1,18 +1,36 @@
-import { IIniSection, IIniSections, Model } from "../types";
+import {
+  IIniSection,
+  IIniSections,
+  ForcedArray,
+  IDataContext,
+  AnyRecordMap,
+  AnyRecord,
+  Unarray,
+} from "../types";
 import { Section } from "../util/ini";
 
-export class IniSectionModel implements IIniSection {
+export class IniSectionModel<
+  S extends AnyRecord = AnyRecord,
+  K extends string = string,
+> implements IIniSection<S>
+{
   /**
    * Section nickname. Set to the nickname property of the INI if present,
    * or undefined otherwise.
    */
   public nickname?: string;
-  public ini!: Section;
+  public ini!: Section<S, K>;
 
-  static async from(inputs: { section: Section }) {
-    const model = new IniSectionModel();
+  #ctx!: IDataContext;
+
+  static async from<S extends AnyRecord = AnyRecord, K extends string = string>(
+    ctx: IDataContext,
+    inputs: { section: Section }
+  ) {
+    const model = new IniSectionModel<S, K>();
+    model.#ctx = ctx;
     model.nickname = inputs.section[1].nickname;
-    model.ini = inputs.section as Section;
+    model.ini = inputs.section as Section<S, K>;
     return model;
   }
 
@@ -23,19 +41,35 @@ export class IniSectionModel implements IIniSection {
     return this.ini[0];
   }
 
-  public get<T = unknown>(key: string): T {
-    return this.ini[1][key];
+  public get<K extends keyof S>(key: K) {
+    return this.ini[1][key as string] as S[K];
   }
 
-  public asArray(key: string) {
-    const val = this.ini[1][key];
-    return Array.isArray(val) ? val : [val];
+  public ids<K extends keyof S>(key: K) {
+    return this.#ctx.ids(this.get(key) as number);
+  }
+
+  public as<V, K extends keyof S>(key: K) {
+    return this.ini[1][key as string] as V;
+  }
+
+  public asArray<K extends keyof S>(key: K) {
+    const val = this.get(key);
+    if (!val) return [] as ForcedArray<S[K]>;
+    return (Array.isArray(val) ? val : [val]) as ForcedArray<S[K]>;
+  }
+
+  public asSingle<K extends keyof S>(key: K) {
+    const val = this.get(key);
+    return (Array.isArray(val) ? val[0] : val) as Unarray<S[K]>;
   }
 }
 
-export class IniSectionsModel implements IIniSections {
-  #rawSections: IniSectionModel[] = [];
-  #sections = new Map<string, IniSectionModel[]>();
+export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
+  implements IIniSections<S>
+{
+  #rawSections: IIniSection<Unarray<S[keyof S]>>[] = [];
+  #sections = new Map<keyof S, IIniSection<Unarray<S[keyof S]>>[]>();
 
   nickname?: string;
 
@@ -45,47 +79,88 @@ export class IniSectionsModel implements IIniSections {
     return [...this.#sections.keys()];
   }
 
-  public get sections() {
+  public get sections(): IIniSection<Unarray<S[keyof S]>>[] {
     return this.#rawSections;
   }
 
-  static async from(inputs: { sections: Section[]; name: Section }) {
-    const model = new IniSectionsModel();
+  static async from<S extends AnyRecordMap = AnyRecordMap>(
+    ctx: IDataContext,
+    inputs: { sections: Section[]; name: Section }
+  ) {
+    const model = new IniSectionsModel<S>();
     model.path = inputs.name[0];
     for (const section of inputs.sections) {
-      const sectionModel = await IniSectionModel.from({
-        section,
-      });
+      const sectionModel = await IniSectionModel.from<Unarray<S[keyof S]>>(
+        ctx,
+        {
+          section,
+        }
+      );
       model.#rawSections.push(sectionModel);
 
       if (!model.#sections.has(section[0])) {
         model.#sections.set(section[0], []);
       }
-      model.#sections.get(section[0])?.push();
+      model.#sections
+        .get(section[0])
+        ?.push(await IniSectionModel.from(ctx, { section }));
     }
     return model;
   }
 
-  findAll(name: string, predicate?: (s: IniSectionModel) => boolean) {
-    return (
-      this.#rawSections.filter(
-        (s) => s.name === name && (!predicate || predicate(s))
-      ) ?? []
-    );
+  append(other: IIniSections<S>) {
+    for (const section of other.sections) {
+      this.#rawSections.push(section);
+
+      if (!this.#sections.has(section.ini[0])) {
+        this.#sections.set(section.ini[0], []);
+      }
+      this.#sections.get(section.ini[0])?.push(section);
+    }
   }
 
-  findFirst(name: string, predicate?: (s: IniSectionModel) => boolean) {
+  findAll<K extends keyof S>(
+    name: K,
+    predicate?: (
+      s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
+    ) => boolean
+  ) {
+    return (this.#rawSections.filter(
+      (s) =>
+        s.name === name &&
+        (!predicate ||
+          predicate(
+            s as IIniSection<Unarray<S[K]>, K extends string ? K : string>
+          ))
+    ) ?? []) as IIniSection<Unarray<S[K]>, K extends string ? K : string>[];
+  }
+
+  findFirst<K extends keyof S>(
+    name: K,
+    predicate?: (
+      s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
+    ) => boolean
+  ) {
     return this.#rawSections.find(
-      (s) => s.name === name && (!predicate || predicate(s))
-    );
+      (s) =>
+        s.name === name &&
+        (!predicate ||
+          predicate(
+            s as IIniSection<Unarray<S[K]>, K extends string ? K : string>
+          ))
+    ) as IIniSection<Unarray<S[K]>, K extends string ? K : string> | undefined;
   }
 
-  findFirstWithChildren(
-    name: string,
-    predicate?: (s: IniSectionModel) => boolean
-  ): [IniSectionModel, IniSectionModel[]] | [undefined, []] {
+  findFirstWithChildren<K extends keyof S>(
+    name: K,
+    predicate?: (s: IIniSection<Unarray<S[K]>>) => boolean
+  ):
+    | [IIniSection<Unarray<S[K]>>, IIniSection<Unarray<S[keyof S]>>[]]
+    | [undefined, []] {
     const index = this.#rawSections.findIndex(
-      (s) => s.name === name && (!predicate || predicate(s))
+      (s) =>
+        s.name === name &&
+        (!predicate || predicate(s as IIniSection<Unarray<S[K]>>))
     );
     if (index === -1) {
       return [undefined, []];
@@ -97,6 +172,6 @@ export class IniSectionsModel implements IIniSections {
       index,
       next === -1 ? undefined : next + 1
     );
-    return [parent, children];
+    return [parent as IIniSection<Unarray<S[K]>>, children];
   }
 }
