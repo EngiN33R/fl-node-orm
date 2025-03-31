@@ -53,10 +53,18 @@ export class IniSectionModel<
     return this.ini[1][key as string] as V;
   }
 
-  public asArray<K extends keyof S>(key: K) {
+  public asArray<K extends keyof S>(key: K, nested?: boolean) {
     const val = this.get(key);
-    if (!val) return [] as ForcedArray<S[K]>;
-    return (Array.isArray(val) ? val : [val]) as ForcedArray<S[K]>;
+    if (!val) return [] as ForcedArray<NonNullable<S[K]>>;
+    if (nested) {
+      return (
+        Array.isArray((val as Array<unknown>)[0]) ? val : [val]
+      ) as ForcedArray<NonNullable<S[K]>>;
+    } else {
+      return (Array.isArray(val) ? val : [val]) as ForcedArray<
+        NonNullable<S[K]>
+      >;
+    }
   }
 
   public asSingle<K extends keyof S>(key: K) {
@@ -70,6 +78,7 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
 {
   #rawSections: IIniSection<Unarray<S[keyof S]>>[] = [];
   #sections = new Map<keyof S, IIniSection<Unarray<S[keyof S]>>[]>();
+  #sectionNicknameLookup = new Map<string, IIniSection<Unarray<S[keyof S]>>>();
 
   nickname?: string;
 
@@ -101,9 +110,14 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
       if (!model.#sections.has(section[0])) {
         model.#sections.set(section[0], []);
       }
-      model.#sections
-        .get(section[0])
-        ?.push(await IniSectionModel.from(ctx, { section }));
+      model.#sections.get(section[0])?.push(sectionModel);
+
+      if (sectionModel.nickname) {
+        model.#sectionNicknameLookup.set(
+          `${section[0]};${sectionModel.nickname}`,
+          sectionModel
+        );
+      }
     }
     return model;
   }
@@ -173,5 +187,11 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
       next === -1 ? undefined : next + 1
     );
     return [parent as IIniSection<Unarray<S[K]>>, children];
+  }
+
+  findByNickname<K extends keyof S>(name: K, nickname: string) {
+    return this.#sectionNicknameLookup.get(`${String(name)};${nickname}`) as
+      | IIniSection<Unarray<S[K]>, K extends string ? K : string>
+      | undefined;
   }
 }

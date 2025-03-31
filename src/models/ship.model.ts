@@ -70,24 +70,37 @@ export class ShipModel implements IShip {
     type: string;
   }> = [];
 
+  constructor(source?: IShip) {
+    if (source) {
+      Object.assign(this, source);
+    }
+  }
+
   static async from(
     ctx: IDataContext,
     inputs: { arch: IIniSection<IniShiparch> }
   ) {
-    const model = new ShipModel();
-
     const arch = inputs.arch.ini[1];
+    const inherited = arch.inherit
+      ? ctx.entity("ship").findByNickname(arch.inherit)
+      : undefined;
+
+    const model = new ShipModel(inherited);
 
     model.nickname = arch.nickname;
 
-    model.name = ctx.ids(arch.ids_name);
-    model.infocard = ctx.ids(arch.ids_info1);
-    model.stats = ctx.ids(arch.ids_info);
-    model.class = getClass(arch);
-    model.hitPoints = arch.hit_pts;
-    model.maxBatteries = arch.shield_battery_limit;
-    model.maxNanobots = arch.nanobot_limit;
-    model.holdSize = arch.hold_size;
+    model.name = arch.ids_name ? ctx.ids(arch.ids_name) : model.name;
+    model.infocard = arch.ids_info1 ? ctx.ids(arch.ids_info1) : model.infocard;
+    model.stats = arch.ids_info ? ctx.ids(arch.ids_info) : model.stats;
+    model.class = arch.ship_class ? getClass(arch) : model.class;
+    model.hitPoints = arch.hit_pts ? arch.hit_pts : model.hitPoints;
+    model.maxBatteries = arch.shield_battery_limit
+      ? arch.shield_battery_limit
+      : model.maxBatteries;
+    model.maxNanobots = arch.nanobot_limit
+      ? arch.nanobot_limit
+      : model.maxNanobots;
+    model.holdSize = arch.hold_size ? arch.hold_size : model.holdSize;
     if (arch.mission_property === "can_use_berths") {
       model.dockingType = "DOCK";
     } else if (arch.mission_property === "can_use_med_moors") {

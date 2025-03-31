@@ -18,13 +18,17 @@ import { parseUtf, UtfTree } from "./util/utf";
 import { parseSystemRange, parseTerritorySections } from "./util/data";
 import { EquipmentModel, PARSED_SECTION_KEYS } from "./models/equipment.model";
 import {
+  IniBaseGood,
   IniConfigShape,
   IniEquipmentShape,
+  IniNpcShip,
   IniShiparch,
   IniSystemShape,
   IniUniverseShape,
 } from "./ini-types";
 import { ShipModel } from "./models/ship.model";
+import { MarketModel } from "./models/market.model";
+import { NpcLoadoutModel } from "./models/npc-loadout.model";
 
 export class DataContext implements IDataContext {
   static readonly INSTANCE = new DataContext();
@@ -40,6 +44,7 @@ export class DataContext implements IDataContext {
     base: [],
     equipment: [],
     ship: [],
+    npc: [],
   };
   private maps: { [K in keyof Entity]: Map<string, Entity[K]> } = {
     faction: new Map(),
@@ -49,7 +54,9 @@ export class DataContext implements IDataContext {
     base: new Map(),
     equipment: new Map(),
     ship: new Map(),
+    npc: new Map(),
   };
+  public market: MarketModel = new MarketModel(this);
 
   private strings: Map<number, string> = new Map();
   private infocards: Map<number, string> = new Map();
@@ -118,8 +125,9 @@ export class DataContext implements IDataContext {
       navmapUtf.get("Texture library\\fancymap.tga\\MIPS")?.data
     );
 
-    // Load mbases
+    // Load hardcoded INIs
     await this.parseIni("MISSIONS/mbases.ini", "mbases");
+    await this.parseIni("MISSIONS/npcships.ini", "npcships");
 
     // Load infocard map for supplementary base infocards
     const infocardMapIni = await this.parseIni("/INTERFACE/infocardmap.ini");
@@ -137,7 +145,7 @@ export class DataContext implements IDataContext {
       "faction_prop"
     );
     const initialWorld = await this.parseIni(
-      "initialworld.ini",
+      cfg?.findFirst("data")?.get("groups") ?? "initialworld.ini",
       "initialworld"
     );
     const empathy = await this.parseIni("MISSIONS/empathy.ini", "empathy");
@@ -165,6 +173,7 @@ export class DataContext implements IDataContext {
     const shipsPaths = cfg?.findFirst("data")?.asArray("ships") ?? [];
     const goodsPaths = cfg?.findFirst("data")?.get("goods") ?? [];
     const marketsPaths = cfg?.findFirst("data")?.get("markets") ?? [];
+    const loadoutsPaths = cfg?.findFirst("data")?.get("loadouts") ?? [];
     for (const path of equipmentPaths) {
       await this.parseIni(path, "equipment");
     }
@@ -177,15 +186,32 @@ export class DataContext implements IDataContext {
     for (const path of marketsPaths) {
       await this.parseIni(path, "markets");
     }
+    for (const path of loadoutsPaths) {
+      await this.parseIni(path, "loadouts");
+    }
     const ships = this.ini<{ ship: IniShiparch }>("ships");
 
     await EquipmentModel.fromAll(this);
-
     for (const arch of ships?.findAll("ship") ?? []) {
       await ShipModel.from(this, {
         arch,
       });
     }
+    for (const basegood of this.ini<{ basegood: IniBaseGood }>(
+      "markets"
+    )?.findAll("basegood") ?? []) {
+      this.market.addOffers(basegood);
+    }
+    for (const npcship of this.ini<{ npcshiparch: IniNpcShip }>(
+      "npcships"
+    )?.findAll("npcshiparch") ?? []) {
+      await NpcLoadoutModel.from(this, { def: npcship });
+    }
+
+    console.log(this.entity("ship").findByNickname("pi_fighter"));
+    console.log(
+      this.entity("ship").findByNickname("pi_ship_fighter_light01_npc")
+    );
 
     // Load systems and bases
     const universePath = (
@@ -285,7 +311,14 @@ export class DataContext implements IDataContext {
 
   entity<K extends EntityType>(type: K): IEntityQuerier<K> {
     return {
-      findAll: () => this.models[type],
+      findAll: (predicate) =>
+        predicate
+          ? this.models[type].filter((e) => predicate(e))
+          : this.models[type],
+      findFirst: (predicate) =>
+        predicate
+          ? this.models[type].find((e) => predicate(e))
+          : this.models[type][0],
       findByNickname: (nickname: string) =>
         this.findByNickname<K>(type, nickname),
     };

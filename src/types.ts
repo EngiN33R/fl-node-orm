@@ -118,7 +118,7 @@ export interface IFaction extends Model<"faction"> {
   nicknamePlurality: "singular" | "plural";
   msgIdPrefix: string;
   jumpPreference: "jumpgate" | "jumphole" | "any";
-  npcShips: string[];
+  npcShips?: string[];
   mcCostume: string;
   voices: string[];
   firstNamesMale: string[];
@@ -176,7 +176,8 @@ export interface IEquipment extends Model<"equipment"> {
     | "battery"
     | "nanobots"
     | "armor"
-    | "cloak";
+    | "cloak"
+    | "commodity";
   class: string;
 
   gun?: {
@@ -268,10 +269,25 @@ export interface IEquipment extends Model<"equipment"> {
   cloak?: {
     powerUsage: number;
   };
+  commodity?: {};
 }
 
-export type ForcedArray<T> = T extends any[] ? T : Array<T>;
-export type Unarray<T> = T extends any[] ? T[number] : T;
+export interface INpc extends Model<"npc"> {
+  faction?: string;
+  level: number;
+  ship: string;
+  equipment: Array<{
+    equipment: string;
+    hardpoint?: string;
+  }>;
+  cargo: Array<{
+    equipment: string;
+    count: number;
+  }>;
+}
+
+export type ForcedArray<T> = T extends Array<unknown> ? T : Array<T>;
+export type Unarray<T> = T extends Array<infer K> ? K : T;
 
 export interface IIniSection<
   S extends AnyRecord = AnyRecord,
@@ -284,7 +300,10 @@ export interface IIniSection<
   get<K extends keyof S>(key: K): S[K];
   ids<K extends keyof S>(key: K): string;
   as<V, K extends keyof S = keyof S>(key: K): V;
-  asArray<K extends keyof S>(key: K): ForcedArray<S[K]>;
+  asArray<K extends keyof S>(
+    key: K,
+    nested?: boolean
+  ): ForcedArray<NonNullable<S[K]>>;
   asSingle<K extends keyof S>(key: K): Unarray<S[K]>;
 }
 
@@ -300,6 +319,10 @@ export interface IIniSections<S extends AnyRecordMap = AnyRecordMap> {
       s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
     ) => boolean
   ): IIniSection<Unarray<S[K]>, K extends string ? K : string>[];
+  findByNickname<K extends keyof S>(
+    name: K,
+    nickname: string
+  ): IIniSection<Unarray<S[K]>, K extends string ? K : string> | undefined;
   findFirst<K extends keyof S>(
     name: K,
     predicate?: (
@@ -322,18 +345,35 @@ export type Entity = {
   faction: IFaction;
   equipment: IEquipment;
   ship: IShip;
+  npc: INpc;
 };
 
 export type EntityType = keyof Entity;
 
 export interface IEntityQuerier<K extends EntityType> {
-  findAll(): Entity[K][];
+  findAll(predicate?: (e: Entity[K]) => boolean): Entity[K][];
+  findFirst(predicate?: (e: Entity[K]) => boolean): Entity[K] | undefined;
   findByNickname(nickname: string): Entity[K] | undefined;
+}
+
+export interface IMarketQuerier {
+  getGood(
+    base: string,
+    equipment: string
+  ): { price: number; sold: boolean; rep: number };
+  getGoods(
+    base: string
+  ): Array<{ equipment: string; price: number; sold: boolean; rep: number }>;
+  getBases(equipment: string): string[];
+  getPrice(base: string, equipment: string): number;
+  getSoldAt(equipment: string): string[];
 }
 
 export interface IDataContext {
   path: string;
   dataPath: string;
+
+  market: IMarketQuerier;
 
   /**
    * Register a model.

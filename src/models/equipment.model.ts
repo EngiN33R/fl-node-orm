@@ -3,6 +3,7 @@ import {
   IniEquipmentBattery,
   IniEquipmentCloak,
   IniEquipmentCMDropper,
+  IniEquipmentCommodity,
   IniEquipmentEngine,
   IniEquipmentGun,
   IniEquipmentMineDropper,
@@ -29,7 +30,8 @@ type Source =
   | IIniSection<IniEquipmentMineDropper, "minedropper">
   | IIniSection<IniEquipmentTractor, "tractor">
   | IIniSection<IniEquipmentBattery, "battery">
-  | IIniSection<IniEquipmentNanobots, "nanobots">;
+  | IIniSection<IniEquipmentNanobots, "nanobots">
+  | IIniSection<IniEquipmentCommodity, "nanobots">;
 
 export const PARSED_SECTION_KEYS = [
   "gun",
@@ -45,6 +47,7 @@ export const PARSED_SECTION_KEYS = [
   "tractor",
   "battery",
   "nanobots",
+  "commodity",
 ] as const;
 
 export class EquipmentModel implements IEquipment {
@@ -77,6 +80,7 @@ export class EquipmentModel implements IEquipment {
   public nanobots?: IEquipment["nanobots"];
   public armor?: IEquipment["armor"];
   public cloak?: IEquipment["cloak"];
+  public commodity?: IEquipment["commodity"];
 
   static async fromAll(ctx: IDataContext) {
     const equipment = ctx.ini<IniEquipmentShape>("equipment");

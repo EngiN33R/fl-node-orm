@@ -9,10 +9,13 @@ export type IniConfigShape = {
   };
   data: {
     universe: string;
+    solar: string;
+    groups: string;
     equipment: string[];
     ships: string[];
     goods: string[];
     markets: string[];
+    loadouts: string[];
   };
 };
 
@@ -455,6 +458,17 @@ export type IniEquipmentThruster = {
   lootable: boolean;
 };
 
+export type IniEquipmentCommodity = {
+  nickname: string;
+  ids_name: number;
+  ids_info: number;
+  volume: number;
+  mass: number;
+  hit_pts: number;
+  lootable: boolean;
+  units_per_container: number;
+};
+
 export type IniEquipmentShape = {
   armor: IniEquipmentArmor[];
   light: IniEquipmentLight[];
@@ -487,6 +501,8 @@ export type IniEquipmentShape = {
 
   battery: OptArray<IniEquipmentBattery>;
   nanobots: OptArray<IniEquipmentNanobots>;
+
+  commodity: IniEquipmentCommodity[];
 };
 
 export type IniShiparch = {
@@ -523,4 +539,52 @@ export type IniShiparch = {
   strafe_power_usage: number;
 
   hp_type: Array<[type: string, ...hardpoints: string[]]>;
+
+  inherit?: string;
+};
+
+export type IniGood = {
+  nickname: string;
+  equipment: string;
+  category: "commodity" | "equipment";
+  price: number;
+  combinable: boolean;
+  good_sell_price?: number;
+  bad_buy_price?: number;
+  bad_sell_price?: number;
+  good_buy_price?: number;
+  item_icon: string;
+  jump_dist: number;
+};
+
+export type IniBaseGood = {
+  base: string;
+  marketgood: Array<
+    [
+      good: string,
+      level: number,
+      rep: number,
+      minimum: number,
+      stock: number,
+      sell: 0 | 1,
+      multiplier: number,
+    ]
+  >;
+};
+
+export type IniMarketShape = {
+  basegood: IniBaseGood[];
+};
+
+export type IniNpcShip = {
+  nickname: string;
+  loadout: string;
+  level: `d${number}`;
+  ship_archetype: string;
+};
+
+export type IniLoadout = {
+  nickname: string;
+  equip: Array<[equipment: string, hardpoint?: string]>;
+  cargo?: Array<[cargo: string, count: number]>;
 };
