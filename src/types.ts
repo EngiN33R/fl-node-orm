@@ -5,9 +5,10 @@ import { Section } from "./util/ini";
 export type AnyRecord = Record<string, unknown>;
 export type AnyRecordMap = Record<string, OptArray<AnyRecord>>;
 export type OptArray<T> = Array<T> | T;
+export type Key<T> = keyof T & string;
 
 export interface Model<K extends EntityType> {
-  nickname?: string;
+  nickname: string;
   type: K;
 }
 
@@ -295,45 +296,43 @@ export interface IIniSection<
 > {
   nickname?: string;
   ini: Section<S, K>;
+  raw: S;
   name: string;
 
-  get<K extends keyof S>(key: K): S[K];
-  ids<K extends keyof S>(key: K): string;
-  as<V, K extends keyof S = keyof S>(key: K): V;
-  asArray<K extends keyof S>(
+  has<K extends string>(key: K): K extends Key<S> ? true : false;
+  get<K extends Key<S>>(key: K): S[K];
+  ids<K extends Key<S>>(key: K): string;
+  as<V, K extends Key<S> = Key<S>>(key: K): V;
+  asArray<K extends Key<S>>(
     key: K,
     nested?: boolean
   ): ForcedArray<NonNullable<S[K]>>;
-  asSingle<K extends keyof S>(key: K): Unarray<S[K]>;
+  asSingle<K extends Key<S>>(key: K): Unarray<S[K]>;
 }
 
 export interface IIniSections<S extends AnyRecordMap = AnyRecordMap> {
   path: string;
-  keys: (keyof S)[];
-  sections: IIniSection<Unarray<S[keyof S]>>[];
+  keys: Key<S>[];
+  sections: IIniSection<Unarray<S[Key<S>]>>[];
 
   append(sections: IIniSections<S>): void;
-  findAll<K extends keyof S>(
+  findAll<K extends Key<S>>(
     name: K,
-    predicate?: (
-      s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
-    ) => boolean
-  ): IIniSection<Unarray<S[K]>, K extends string ? K : string>[];
-  findByNickname<K extends keyof S>(
+    predicate?: (s: IIniSection<Unarray<S[K]>, K>) => boolean
+  ): IIniSection<Unarray<S[K]>, K>[];
+  findByNickname<K extends Key<S>>(
     name: K,
     nickname: string
-  ): IIniSection<Unarray<S[K]>, K extends string ? K : string> | undefined;
-  findFirst<K extends keyof S>(
+  ): IIniSection<Unarray<S[K]>, K> | undefined;
+  findFirst<K extends Key<S>>(
     name: K,
-    predicate?: (
-      s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
-    ) => boolean
-  ): IIniSection<Unarray<S[K]>, K extends string ? K : string> | undefined;
-  findFirstWithChildren<K extends keyof S>(
+    predicate?: (s: IIniSection<Unarray<S[K]>, K>) => boolean
+  ): IIniSection<Unarray<S[K]>, K> | undefined;
+  findFirstWithChildren<K extends Key<S>>(
     name: K,
     predicate?: (s: IIniSection<Unarray<S[K]>>) => boolean
   ):
-    | [IIniSection<Unarray<S[K]>>, IIniSection<Unarray<S[keyof S]>>[]]
+    | [IIniSection<Unarray<S[K]>>, IIniSection<Unarray<S[Key<S>]>>[]]
     | [undefined, []];
 }
 

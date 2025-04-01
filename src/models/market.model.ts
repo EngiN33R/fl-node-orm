@@ -1,18 +1,36 @@
-import { IniBaseGood, IniGood } from "../ini-types";
+import {
+  IniBaseGood,
+  IniEquipmentGood,
+  IniShipGood,
+  IniShipHullGood,
+} from "../ini-types";
 import { IDataContext, IIniSection, IMarketQuerier } from "../types";
 import { BiMapSet } from "../util/bimap";
+
+type IniGood = IniEquipmentGood | IniShipGood;
+
+type MapValue = {
+  price: number;
+  underlying: string;
+  addons?: Array<{ equipment: string; hardpoint: string; count: number }>;
+};
 
 export class MarketModel implements IMarketQuerier {
   public nickname = "global_market";
   public type = "market" as const;
 
   #ctx: IDataContext;
-  #goods = new Map<string, IIniSection<IniGood, "good">>();
-  #equipmentGoods = new Map<string, IIniSection<IniGood, "good">>();
+  #map = new Map<string, MapValue>();
+  #secondaryMap = new Map<string, MapValue>();
   #offers = new BiMapSet<string, string>();
   #meta = new Map<
     `${string}@${string}`,
-    { price: number; sold: boolean; rep: number }
+    {
+      price: number;
+      sold: boolean;
+      rep: number;
+      addons?: Array<{ equipment: string; hardpoint: string; count: number }>;
+    }
   >();
 
   constructor(ctx: IDataContext) {
@@ -27,24 +45,56 @@ export class MarketModel implements IMarketQuerier {
       .asArray("marketgood", true)
       .map(([good]) => good);
     this.#ctx
-      .ini<{ good: IniGood }>("goods")
+      .ini<{ good: IniEquipmentGood | IniShipGood }>("goods")
       ?.findAll("good", (s) => nicknames.includes(s.get("nickname")))
       .forEach((good) => {
-        this.#goods.set(good.get("nickname"), good);
-        this.#equipmentGoods.set(good.get("equipment"), good);
+        const values = good.raw;
+        if ("equipment" in values) {
+          const value = {
+            price: values.price,
+            underlying: values.equipment,
+          };
+          this.#map.set(values.nickname, value);
+          this.#secondaryMap.set(values.equipment, value);
+        } else {
+          const hull = this.#ctx
+            .ini<{ good: IniShipHullGood }>("goods")
+            ?.findByNickname("good", values.hull);
+          if (!hull) {
+            return;
+          }
+          const value = {
+            price: hull.get("price"),
+            underlying: hull.get("ship"),
+            addons: (good as IIniSection<IniShipGood>)
+              .asArray("addon", true)
+              .map(([equipment, hardpoint, count]) => ({
+                equipment,
+                hardpoint,
+                count,
+              })),
+          };
+          this.#map.set(values.nickname, value);
+          this.#secondaryMap.set(hull.get("ship"), value);
+        }
       });
 
     for (const [nickname, , rep, min, stock, , multiplier] of basegood.asArray(
       "marketgood",
       true
     )) {
-      const good = this.#goods.get(nickname)!;
-      const price = good.get("price") * multiplier;
-      this.#offers.set(basegood.get("base"), good.get("equipment"));
-      this.#meta.set(`${good.get("equipment")}@${basegood.get("base")}`, {
+      const good = this.#map.get(nickname);
+      if (!good) {
+        continue;
+      }
+      const { price: basePrice, underlying, addons } = good;
+      const price = basePrice * multiplier;
+      this.#offers.set(basegood.get("base"), underlying);
+      this.#meta.set(`${underlying}@${basegood.get("base")}`, {
         price,
         sold: min > 0 && stock > 0,
         rep,
+        addons,
       });
     }
   }
@@ -56,7 +106,7 @@ export class MarketModel implements IMarketQuerier {
   getPrice(base: string, equipment: string) {
     return (
       this.#meta.get(`${equipment}@${base}`)?.price ??
-      this.#equipmentGoods.get(equipment)?.get("price") ??
+      this.#secondaryMap.get(equipment)?.price ??
       0
     );
   }

@@ -6,6 +6,7 @@ import {
   AnyRecordMap,
   AnyRecord,
   Unarray,
+  Key,
 } from "../types";
 import { Section } from "../util/ini";
 
@@ -41,19 +42,27 @@ export class IniSectionModel<
     return this.ini[0];
   }
 
-  public get<K extends keyof S>(key: K) {
+  public get raw() {
+    return this.ini[1];
+  }
+
+  public has<K extends string>(key: K) {
+    return (key in this.ini[1]) as K extends Key<S> ? true : false;
+  }
+
+  public get<K extends Key<S>>(key: K) {
     return this.ini[1][key as string] as S[K];
   }
 
-  public ids<K extends keyof S>(key: K) {
+  public ids<K extends Key<S>>(key: K) {
     return this.#ctx.ids(this.get(key) as number);
   }
 
-  public as<V, K extends keyof S>(key: K) {
+  public as<V, K extends Key<S>>(key: K) {
     return this.ini[1][key as string] as V;
   }
 
-  public asArray<K extends keyof S>(key: K, nested?: boolean) {
+  public asArray<K extends Key<S>>(key: K, nested?: boolean) {
     const val = this.get(key);
     if (!val) return [] as ForcedArray<NonNullable<S[K]>>;
     if (nested) {
@@ -67,7 +76,7 @@ export class IniSectionModel<
     }
   }
 
-  public asSingle<K extends keyof S>(key: K) {
+  public asSingle<K extends Key<S>>(key: K) {
     const val = this.get(key);
     return (Array.isArray(val) ? val[0] : val) as Unarray<S[K]>;
   }
@@ -76,9 +85,9 @@ export class IniSectionModel<
 export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
   implements IIniSections<S>
 {
-  #rawSections: IIniSection<Unarray<S[keyof S]>>[] = [];
-  #sections = new Map<keyof S, IIniSection<Unarray<S[keyof S]>>[]>();
-  #sectionNicknameLookup = new Map<string, IIniSection<Unarray<S[keyof S]>>>();
+  #rawSections: any[] = [];
+  #sections = new Map<Key<S>, any[]>();
+  #sectionNicknameLookup = new Map<string, any>();
 
   nickname?: string;
 
@@ -88,7 +97,7 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
     return [...this.#sections.keys()];
   }
 
-  public get sections(): IIniSection<Unarray<S[keyof S]>>[] {
+  public get sections(): IIniSection<Unarray<S[Key<S>]>>[] {
     return this.#rawSections;
   }
 
@@ -99,12 +108,9 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
     const model = new IniSectionsModel<S>();
     model.path = inputs.name[0];
     for (const section of inputs.sections) {
-      const sectionModel = await IniSectionModel.from<Unarray<S[keyof S]>>(
-        ctx,
-        {
-          section,
-        }
-      );
+      const sectionModel = await IniSectionModel.from<Unarray<S[Key<S>]>>(ctx, {
+        section,
+      });
       model.#rawSections.push(sectionModel);
 
       if (!model.#sections.has(section[0])) {
@@ -130,46 +136,42 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
         this.#sections.set(section.ini[0], []);
       }
       this.#sections.get(section.ini[0])?.push(section);
+      if (section.nickname) {
+        this.#sectionNicknameLookup.set(
+          `${section.ini[0]};${section.nickname}`,
+          section
+        );
+      }
     }
   }
 
-  findAll<K extends keyof S>(
+  findAll<K extends Key<S>>(
     name: K,
-    predicate?: (
-      s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
-    ) => boolean
+    predicate?: (s: IIniSection<Unarray<S[K]>, K>) => boolean
   ) {
     return (this.#rawSections.filter(
       (s) =>
         s.name === name &&
-        (!predicate ||
-          predicate(
-            s as IIniSection<Unarray<S[K]>, K extends string ? K : string>
-          ))
-    ) ?? []) as IIniSection<Unarray<S[K]>, K extends string ? K : string>[];
+        (!predicate || predicate(s as IIniSection<Unarray<S[K]>, K>))
+    ) ?? []) as IIniSection<Unarray<S[K]>, K>[];
   }
 
-  findFirst<K extends keyof S>(
+  findFirst<K extends Key<S>>(
     name: K,
-    predicate?: (
-      s: IIniSection<Unarray<S[K]>, K extends string ? K : string>
-    ) => boolean
+    predicate?: (s: IIniSection<Unarray<S[K]>, K>) => boolean
   ) {
     return this.#rawSections.find(
       (s) =>
         s.name === name &&
-        (!predicate ||
-          predicate(
-            s as IIniSection<Unarray<S[K]>, K extends string ? K : string>
-          ))
-    ) as IIniSection<Unarray<S[K]>, K extends string ? K : string> | undefined;
+        (!predicate || predicate(s as IIniSection<Unarray<S[K]>, K>))
+    ) as IIniSection<Unarray<S[K]>, K> | undefined;
   }
 
-  findFirstWithChildren<K extends keyof S>(
+  findFirstWithChildren<K extends Key<S>>(
     name: K,
     predicate?: (s: IIniSection<Unarray<S[K]>>) => boolean
   ):
-    | [IIniSection<Unarray<S[K]>>, IIniSection<Unarray<S[keyof S]>>[]]
+    | [IIniSection<Unarray<S[K]>>, IIniSection<Unarray<S[Key<S>]>>[]]
     | [undefined, []] {
     const index = this.#rawSections.findIndex(
       (s) =>
@@ -189,9 +191,9 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
     return [parent as IIniSection<Unarray<S[K]>>, children];
   }
 
-  findByNickname<K extends keyof S>(name: K, nickname: string) {
-    return this.#sectionNicknameLookup.get(`${String(name)};${nickname}`) as
-      | IIniSection<Unarray<S[K]>, K extends string ? K : string>
+  findByNickname<K extends Key<S>>(name: K, nickname: string) {
+    return this.#sectionNicknameLookup.get(`${name};${nickname}`) as
+      | IIniSection<Unarray<S[K]>, K>
       | undefined;
   }
 }

@@ -543,7 +543,7 @@ export type IniShiparch = {
   inherit?: string;
 };
 
-export type IniGood = {
+export type IniEquipmentGood = {
   nickname: string;
   equipment: string;
   category: "commodity" | "equipment";
@@ -555,6 +555,20 @@ export type IniGood = {
   good_buy_price?: number;
   item_icon: string;
   jump_dist: number;
+};
+
+export type IniShipHullGood = {
+  nickname: string;
+  category: "shiphull";
+  ship: string;
+  price: number;
+};
+
+export type IniShipGood = {
+  nickname: string;
+  category: "ship";
+  hull: string;
+  addon: Array<[equipment: string, hardpoint: string, count: number]>;
 };
 
 export type IniBaseGood = {

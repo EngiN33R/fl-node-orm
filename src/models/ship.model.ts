@@ -65,10 +65,10 @@ export class ShipModel implements IShip {
   public maxBatteries!: number;
   public holdSize!: number;
   public dockingType!: "DOCK" | "MED_MOOR" | "LARGE_MOOR";
-  public hardpoints: Array<{
+  public hardpoints!: Array<{
     id: string;
     type: string;
-  }> = [];
+  }>;
 
   constructor(source?: IShip) {
     if (source) {
@@ -109,7 +109,8 @@ export class ShipModel implements IShip {
       model.dockingType = "LARGE_MOOR";
     }
 
-    for (const [type, ...hardpoints] of inputs.arch.asArray("hp_type")) {
+    model.hardpoints = model.hardpoints ? [...model.hardpoints] : [];
+    for (const [type, ...hardpoints] of inputs.arch.asArray("hp_type", true)) {
       for (const hp of hardpoints) {
         model.hardpoints.push({
           id: hp,

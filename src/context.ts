@@ -208,11 +208,6 @@ export class DataContext implements IDataContext {
       await NpcLoadoutModel.from(this, { def: npcship });
     }
 
-    console.log(this.entity("ship").findByNickname("pi_fighter"));
-    console.log(
-      this.entity("ship").findByNickname("pi_ship_fighter_light01_npc")
-    );
-
     // Load systems and bases
     const universePath = (
       cfg?.findFirst("data")?.get("universe") as string
@@ -326,6 +321,20 @@ export class DataContext implements IDataContext {
 
   ids(key: number) {
     return this.strings.get(key) ?? this.infocards.get(key) ?? `IDS#${key}`;
+  }
+
+  findIds(target: string) {
+    for (const [key, value] of this.strings.entries()) {
+      if (value === target) {
+        return key;
+      }
+    }
+    for (const [key, value] of this.infocards.entries()) {
+      if (value === target) {
+        return key;
+      }
+    }
+    return -1;
   }
 
   idsWithRelated(key: number): [string] | [string, string] {

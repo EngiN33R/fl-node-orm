@@ -44,7 +44,7 @@ export const ZoneBitmask = Bitmask.define([
 export class ZoneModel implements IZone {
   #ini!: IniSystemZone;
 
-  public nickname?: string;
+  public nickname!: string;
   public type = "zone" as const;
   public system!: string;
 
