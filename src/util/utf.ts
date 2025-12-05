@@ -71,6 +71,10 @@ export class UtfTree {
     return current;
   }
 
+  first() {
+    return Object.values(this.children)[0];
+  }
+
   list(path?: string) {
     let current: UtfTree = this;
     if (path) {

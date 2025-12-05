@@ -1,4 +1,4 @@
-import { IniShiparch } from "../ini-types";
+import { IniShiparch, IniShipHullGood } from "../ini-types";
 import { IDataContext, IIniSection, IShip } from "../types";
 
 const getClass = (arch: IniShiparch) => {
@@ -58,6 +58,7 @@ export class ShipModel implements IShip {
 
   public name!: string;
   public infocard!: string;
+  public icon!: string;
   public stats!: string;
   public class!: string;
   public hitPoints!: number;
@@ -80,7 +81,7 @@ export class ShipModel implements IShip {
     ctx: IDataContext,
     inputs: { arch: IIniSection<IniShiparch> }
   ) {
-    const arch = inputs.arch.ini[1];
+    const arch = inputs.arch.raw;
     const inherited = arch.inherit
       ? ctx.entity("ship").findByNickname(arch.inherit)
       : undefined;
@@ -91,6 +92,17 @@ export class ShipModel implements IShip {
 
     model.name = arch.ids_name ? ctx.ids(arch.ids_name) : model.name;
     model.infocard = arch.ids_info1 ? ctx.ids(arch.ids_info1) : model.infocard;
+    const goods = ctx.ini<{ good: IniShipHullGood }>("goods");
+    const good = goods?.findFirst("good", (s) => s.raw.ship === arch.nickname);
+    model.icon = (good?.get("item_icon") ?? "").replace(/\\/g, "/");
+    if (model.icon && !ctx.binary(`${model.nickname}_icon`)) {
+      ctx.registerBinary(
+        `${model.nickname}_icon`,
+        (await ctx.loadUtf(model.icon)).get("Texture library")?.first()?.first()
+          ?.data
+      );
+    }
+
     model.stats = arch.ids_info ? ctx.ids(arch.ids_info) : model.stats;
     model.class = arch.ship_class ? getClass(arch) : model.class;
     model.hitPoints = arch.hit_pts ? arch.hit_pts : model.hitPoints;

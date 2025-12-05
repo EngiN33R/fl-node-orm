@@ -8,6 +8,7 @@ import {
 import {
   EntityType,
   IDataContext,
+  IEquipment,
   IIniSection,
   IIniSections,
   IObject,
@@ -79,6 +80,7 @@ export class ZoneModel implements IZone {
 
   public loot?: {
     commodity: string;
+    equipment: IEquipment;
     count: [number, number];
     difficulty: number;
   };
@@ -135,9 +137,12 @@ export class ZoneModel implements IZone {
     if (zoneDefPath) {
       const zoneDef = await ctx.parseIni(zoneDefPath);
       const loot = zoneDef.findFirst("lootablezone");
-      if (loot) {
+      const commodity = loot?.get("dynamic_loot_commodity") as string;
+      const equipment = ctx.findByNickname("equipment", commodity);
+      if (loot && equipment) {
         model.loot = {
-          commodity: loot?.get("dynamic_loot_commodity") as string,
+          commodity,
+          equipment,
           count: loot?.get("dynamic_loot_count") as [number, number],
           difficulty: loot?.get("dynamic_loot_difficulty") as number,
         };
@@ -165,6 +170,7 @@ export class ObjectModel implements IObject {
   public visit!: ReturnType<typeof ObjectVisitBitmask>;
   public faction?: string;
   public parent?: string;
+  public loadout?: string;
 
   public goto?: {
     system: string;
@@ -189,6 +195,7 @@ export class ObjectModel implements IObject {
     model.visit = ObjectVisitBitmask(model.#ini.visit ?? 0);
     model.archetype = model.#ini.archetype;
     model.faction = model.#ini.reputation;
+    model.loadout = model.#ini.loadout;
     model.parent = model.#ini.parent;
 
     if (model.#ini.goto) {

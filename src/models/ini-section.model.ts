@@ -16,6 +16,10 @@ export class IniSectionModel<
 > implements IIniSection<S>
 {
   /**
+   * Name of the INI section.
+   */
+  public name!: string;
+  /**
    * Section nickname. Set to the nickname property of the INI if present,
    * or undefined otherwise.
    */
@@ -30,16 +34,10 @@ export class IniSectionModel<
   ) {
     const model = new IniSectionModel<S, K>();
     model.#ctx = ctx;
+    model.name = inputs.section[0];
     model.nickname = inputs.section[1].nickname;
     model.ini = inputs.section as Section<S, K>;
     return model;
-  }
-
-  /**
-   * Name of the INI section.
-   */
-  public get name() {
-    return this.ini[0];
   }
 
   public get raw() {
@@ -186,7 +184,7 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
       .findIndex((s) => s.name === name);
     const [parent, ...children] = this.#rawSections.slice(
       index,
-      next === -1 ? undefined : next + 1
+      next === -1 ? undefined : index + next + 1
     );
     return [parent as IIniSection<Unarray<S[K]>>, children];
   }

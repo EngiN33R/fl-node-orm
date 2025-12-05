@@ -1,6 +1,7 @@
 import { ObjectVisitBitmask, ZoneVisitBitmask } from "./models/common";
 import { ZoneBitmask } from "./models/system.model";
 import { Section } from "./util/ini";
+import { UtfTree } from "./util/utf";
 
 export type AnyRecord = Record<string, unknown>;
 export type AnyRecordMap = Record<string, OptArray<AnyRecord>>;
@@ -52,6 +53,7 @@ export interface IZone extends Model<"zone"> {
 
   loot?: {
     commodity: string;
+    equipment: IEquipment;
     count: [number, number];
     difficulty: number;
   };
@@ -67,6 +69,7 @@ export interface IObject extends Model<"object"> {
   archetype: string;
   faction?: string;
   parent?: string;
+  loadout?: string;
 
   goto?: {
     system: string;
@@ -77,6 +80,7 @@ export interface IObject extends Model<"object"> {
 
 export interface IBase extends Model<"base"> {
   system: string;
+  objectNickname: string;
   name: string;
   infocard: string;
   infocards: string[];
@@ -140,6 +144,8 @@ export interface IFaction extends Model<"faction"> {
 export interface IShip extends Model<"ship"> {
   name: string;
   infocard: string;
+  icon: string;
+
   stats: string;
   class: string;
   hitPoints: number;
@@ -156,7 +162,7 @@ export interface IShip extends Model<"ship"> {
 export interface IEquipment extends Model<"equipment"> {
   name: string;
   infocard: string;
-
+  icon: string;
   hardpoint: string;
   hitpoints: number;
   mass: number;
@@ -164,10 +170,13 @@ export interface IEquipment extends Model<"equipment"> {
 
   kind:
     | "gun"
+    | "ammo"
     | "turret"
     | "missile"
     | "mine"
+    | "mine_ammo"
     | "cm"
+    | "cm_ammo"
     | "shield"
     | "power"
     | "engine"
@@ -270,7 +279,10 @@ export interface IEquipment extends Model<"equipment"> {
   cloak?: {
     powerUsage: number;
   };
-  commodity?: {};
+  commodity?: {
+    decayPerSecond: number;
+    lootable: boolean;
+  };
 }
 
 export interface INpc extends Model<"npc"> {
@@ -380,6 +392,11 @@ export interface IDataContext {
    */
   registerModel<K extends EntityType>(model: Entity[K]): void;
   /**
+   * Register binary data.
+   * @param data Data to register. If `undefined`, does nothing.
+   */
+  registerBinary(handle: string, data: ArrayBuffer | undefined): void;
+  /**
    * Find first entity of type by nickname.
    * @param type Entity type.
    * @param nickname Entity nickname.
@@ -419,5 +436,6 @@ export interface IDataContext {
     relativePath: string,
     nickname?: string
   ): Promise<IIniSections<S>>;
+  loadUtf(relativePath: string, nickname?: string): Promise<UtfTree>;
   entity<K extends EntityType>(type: K): IEntityQuerier<K>;
 }

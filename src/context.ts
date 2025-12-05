@@ -128,6 +128,8 @@ export class DataContext implements IDataContext {
     // Load hardcoded INIs
     await this.parseIni("MISSIONS/mbases.ini", "mbases");
     await this.parseIni("MISSIONS/npcships.ini", "npcships");
+    await this.parseIni("INTERFACE/knowledgemap.ini", "knowledgemap");
+    await this.parseIni("RANDOMMISSIONS/diff2money.ini", "diff2money");
 
     // Load infocard map for supplementary base infocards
     const infocardMapIni = await this.parseIni("/INTERFACE/infocardmap.ini");
@@ -282,7 +284,7 @@ export class DataContext implements IDataContext {
     }
   }
 
-  registerBinary(handle: string, data?: ArrayBuffer) {
+  registerBinary(handle: string, data: ArrayBuffer | undefined) {
     if (data) {
       this.binaries.set(handle, data);
     }

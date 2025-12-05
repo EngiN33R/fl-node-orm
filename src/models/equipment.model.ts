@@ -2,11 +2,15 @@ import {
   IniEquipmentArmor,
   IniEquipmentBattery,
   IniEquipmentCloak,
+  IniEquipmentCMAmmo,
   IniEquipmentCMDropper,
   IniEquipmentCommodity,
   IniEquipmentEngine,
+  IniEquipmentGood,
   IniEquipmentGun,
+  IniEquipmentMineAmmo,
   IniEquipmentMineDropper,
+  IniEquipmentMunition,
   IniEquipmentNanobots,
   IniEquipmentPower,
   IniEquipmentScanner,
@@ -14,12 +18,15 @@ import {
   IniEquipmentShield,
   IniEquipmentThruster,
   IniEquipmentTractor,
+  IniShipHullGood,
 } from "../ini-types";
 import { IDataContext, IEquipment, IIniSection } from "../types";
 
 type Source =
   | IIniSection<IniEquipmentGun, "gun">
+  | IIniSection<IniEquipmentMunition, "munition">
   | IIniSection<IniEquipmentCMDropper, "countermeasuredropper">
+  | IIniSection<IniEquipmentCMAmmo, "countermeasure">
   | IIniSection<IniEquipmentEngine, "engine">
   | IIniSection<IniEquipmentArmor, "armor">
   | IIniSection<IniEquipmentCloak, "cloak">
@@ -28,10 +35,11 @@ type Source =
   | IIniSection<IniEquipmentShield, "shieldgenerator">
   | IIniSection<IniEquipmentThruster, "thruster">
   | IIniSection<IniEquipmentMineDropper, "minedropper">
+  | IIniSection<IniEquipmentMineAmmo, "mine">
   | IIniSection<IniEquipmentTractor, "tractor">
-  | IIniSection<IniEquipmentBattery, "battery">
-  | IIniSection<IniEquipmentNanobots, "nanobots">
-  | IIniSection<IniEquipmentCommodity, "nanobots">;
+  | IIniSection<IniEquipmentBattery, "shieldbattery">
+  | IIniSection<IniEquipmentNanobots, "repairkit">
+  | IIniSection<IniEquipmentCommodity, "commodity">;
 
 export const PARSED_SECTION_KEYS = [
   "gun",
@@ -56,6 +64,7 @@ export class EquipmentModel implements IEquipment {
 
   public name!: string;
   public infocard!: string;
+  public icon!: string;
 
   public hardpoint!: string;
   public hitpoints!: number;
@@ -89,7 +98,17 @@ export class EquipmentModel implements IEquipment {
         def,
       });
     }
+    for (const def of equipment?.findAll("munition") ?? []) {
+      await EquipmentModel.from(ctx, {
+        def,
+      });
+    }
     for (const def of equipment?.findAll("countermeasuredropper") ?? []) {
+      await EquipmentModel.from(ctx, {
+        def,
+      });
+    }
+    for (const def of equipment?.findAll("countermeasure") ?? []) {
       await EquipmentModel.from(ctx, {
         def,
       });
@@ -134,17 +153,27 @@ export class EquipmentModel implements IEquipment {
         def,
       });
     }
+    for (const def of equipment?.findAll("mine") ?? []) {
+      await EquipmentModel.from(ctx, {
+        def,
+      });
+    }
     for (const def of equipment?.findAll("tractor") ?? []) {
       await EquipmentModel.from(ctx, {
         def,
       });
     }
-    for (const def of equipment?.findAll("battery") ?? []) {
+    for (const def of equipment?.findAll("shieldbattery") ?? []) {
       await EquipmentModel.from(ctx, {
         def,
       });
     }
-    for (const def of equipment?.findAll("nanobots") ?? []) {
+    for (const def of equipment?.findAll("repairkit") ?? []) {
+      await EquipmentModel.from(ctx, {
+        def,
+      });
+    }
+    for (const def of equipment?.findAll("commodity") ?? []) {
       await EquipmentModel.from(ctx, {
         def,
       });
@@ -162,12 +191,15 @@ export class EquipmentModel implements IEquipment {
     const values = def.ini[1];
 
     const equipment = ctx.ini<IniEquipmentShape>("equipment");
+    const goods = ctx.ini<{ good: IniEquipmentGood }>("goods");
+    const good = goods?.findFirst(
+      "good",
+      (s) => s.raw.equipment === values.nickname
+    );
 
     const model = new EquipmentModel();
 
     model.nickname = values.nickname;
-    model.mass = "mass" in values ? values.mass : 0;
-    model.volume = "volume" in values ? values.volume : 0;
     if ("ids_name" in values) {
       model.name = ctx.ids(values.ids_name);
       model.infocard = ctx.ids(values.ids_info);
@@ -175,6 +207,17 @@ export class EquipmentModel implements IEquipment {
       model.name = values.nickname;
       model.infocard = "No information available.";
     }
+    model.icon = (good?.get("item_icon") ?? "").replace(/\\/g, "/");
+    if (model.icon && !ctx.binary(`${model.nickname}_icon`)) {
+      const utf = await ctx.loadUtf(model.icon);
+      ctx.registerBinary(
+        `${model.nickname}_icon`,
+        utf.get("Texture library")?.first()?.first()?.data
+      );
+    }
+
+    model.mass = "mass" in values ? values.mass : 0;
+    model.volume = "volume" in values ? values.volume : 0;
 
     if (def.ini[0] === "gun") {
       const gun = def.ini[1];
@@ -334,20 +377,33 @@ export class EquipmentModel implements IEquipment {
         speed: tractor.max_length,
         range: tractor.reach_speed,
       };
-    } else if (def.ini[0] === "battery") {
+    } else if (def.ini[0] === "shieldbattery") {
       const battery = def.ini[1];
       model.hardpoint = "hp_battery";
       model.kind = "battery";
       model.battery = {
         hitpoints: battery.hit_pts,
       };
-    } else if (def.ini[0] === "nanobots") {
+    } else if (def.ini[0] === "repairkit") {
       const nanobots = def.ini[1];
       model.hardpoint = "hp_nanobots";
       model.kind = "nanobots";
       model.nanobots = {
         hitpoints: nanobots.hit_pts,
       };
+    } else if (def.ini[0] === "commodity") {
+      const commodity = def.ini[1];
+      model.kind = "commodity";
+      model.commodity = {
+        decayPerSecond: commodity.decay_per_second,
+        lootable: commodity.lootable,
+      };
+    } else if (def.ini[0] === "munition" && def.ini[1].requires_ammo) {
+      model.kind = "ammo";
+    } else if (def.ini[0] === "countermeasure") {
+      model.kind = "cm_ammo";
+    } else if (def.ini[0] === "mine") {
+      model.kind = "mine_ammo";
     }
 
     ctx.registerModel(model);

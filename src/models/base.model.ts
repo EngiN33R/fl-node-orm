@@ -17,6 +17,7 @@ export class BaseModel implements IBase {
   public infocard!: string;
   public infocards!: string[];
   public system!: string;
+  public objectNickname!: string;
   public position!: [number, number, number];
   public rotation!: [number, number, number];
   public faction!: string;
@@ -43,6 +44,7 @@ export class BaseModel implements IBase {
       : [""];
     model.infocard = model.infocards.join("");
     model.system = universe.system;
+    model.objectNickname = object.nickname;
     model.position = object.pos;
     model.rotation = object.rotate ?? [0, 0, 0];
     model.faction = object.reputation ?? "fc_uk_grp";

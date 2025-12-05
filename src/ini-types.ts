@@ -467,6 +467,7 @@ export type IniEquipmentCommodity = {
   hit_pts: number;
   lootable: boolean;
   units_per_container: number;
+  decay_per_second: number;
 };
 
 export type IniEquipmentShape = {
@@ -499,8 +500,8 @@ export type IniEquipmentShape = {
     impulse: number;
   }>;
 
-  battery: OptArray<IniEquipmentBattery>;
-  nanobots: OptArray<IniEquipmentNanobots>;
+  shieldbattery: OptArray<IniEquipmentBattery>;
+  repairkit: OptArray<IniEquipmentNanobots>;
 
   commodity: IniEquipmentCommodity[];
 };
@@ -562,6 +563,7 @@ export type IniShipHullGood = {
   category: "shiphull";
   ship: string;
   price: number;
+  item_icon: string;
 };
 
 export type IniShipGood = {
