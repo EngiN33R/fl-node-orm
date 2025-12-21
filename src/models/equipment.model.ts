@@ -20,7 +20,7 @@ import {
   IniEquipmentTractor,
   IniShipHullGood,
 } from "../ini-types";
-import { IDataContext, IEquipment, IIniSection } from "../types";
+import { IDataContext, IEquipment, IGood, IIniSection } from "../types";
 
 type Source =
   | IIniSection<IniEquipmentGun, "gun">
@@ -90,6 +90,8 @@ export class EquipmentModel implements IEquipment {
   public armor?: IEquipment["armor"];
   public cloak?: IEquipment["cloak"];
   public commodity?: IEquipment["commodity"];
+
+  public good?: IGood;
 
   static async fromAll(ctx: IDataContext) {
     const equipment = ctx.ini<IniEquipmentShape>("equipment");
@@ -169,6 +171,11 @@ export class EquipmentModel implements IEquipment {
       });
     }
     for (const def of equipment?.findAll("repairkit") ?? []) {
+      await EquipmentModel.from(ctx, {
+        def,
+      });
+    }
+    for (const def of equipment?.findAll("commodity") ?? []) {
       await EquipmentModel.from(ctx, {
         def,
       });
@@ -394,9 +401,13 @@ export class EquipmentModel implements IEquipment {
     } else if (def.ini[0] === "commodity") {
       const commodity = def.ini[1];
       model.kind = "commodity";
+      model.hardpoint = "hp_commodity";
       model.commodity = {
         decayPerSecond: commodity.decay_per_second,
         lootable: commodity.lootable,
+        unitsPerContainer: commodity.units_per_container,
+        podAppearance: commodity.pod_appearance,
+        lootAppearance: commodity.loot_appearance,
       };
     } else if (def.ini[0] === "munition" && def.ini[1].requires_ammo) {
       model.kind = "ammo";
@@ -406,7 +417,77 @@ export class EquipmentModel implements IEquipment {
       model.kind = "mine_ammo";
     }
 
+    const goodIni = ctx
+      .ini<{ good: IniEquipmentGood }>("goods")
+      ?.findFirst("good", (g) => g.get("equipment") === model.nickname);
+    if (goodIni) {
+      model.good = await GoodModel.from(ctx, {
+        def: goodIni,
+      });
+    }
+
     ctx.registerModel(model);
+
+    return model;
+  }
+}
+
+export class GoodModel implements IGood {
+  public nickname!: string;
+  public type = "good" as const;
+
+  public equipment!: string;
+  public category!: "commodity" | "equipment";
+  public price!: number;
+  public combinable!: boolean;
+  public goodSellPrice?: number;
+  public badBuyPrice?: number;
+  public badSellPrice?: number;
+  public goodBuyPrice?: number;
+
+  static async from(
+    ctx: IDataContext,
+    {
+      def,
+    }: {
+      def: IIniSection<IniEquipmentGood, "good">;
+    }
+  ) {
+    const model = new GoodModel();
+
+    model.nickname = def.get("nickname");
+    model.equipment = def.get("equipment");
+    model.category = def.get("category");
+    model.price = def.get("price");
+    model.combinable = def.get("combinable");
+    model.goodSellPrice = def.get("good_sell_price");
+    model.badBuyPrice = def.get("bad_buy_price");
+    model.badSellPrice = def.get("bad_sell_price");
+    model.goodBuyPrice = def.get("good_buy_price");
+
+    ctx.registerModel(model);
+    if (def.get("item_icon")) {
+      try {
+        const itemIconUtf = await ctx.loadUtf(
+          def.get("item_icon").replace(/\\/g, "/")
+        );
+        const icon = itemIconUtf
+          ?.listLeaves()
+          .find(
+            (l) =>
+              l.path.includes("MIP") &&
+              l.fullPath.toLowerCase().includes(".tga")
+          );
+        if (icon) {
+          ctx.registerBinary(model.nickname + "_icon", icon.data);
+        }
+      } catch (e) {
+        console.warn(
+          `Failed to load item icon for ${model.nickname}: ${e}`,
+          (e as Error).stack
+        );
+      }
+    }
 
     return model;
   }

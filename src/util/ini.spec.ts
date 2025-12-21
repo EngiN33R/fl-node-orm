@@ -10,15 +10,15 @@ describe("INI parser", () => {
         "DATA",
         "UNIVERSE",
         "SYSTEMS",
-        "BW11",
-        "bw11.ini"
+        "LI01",
+        "li01.ini"
       )
     );
-    console.log(
+    expect(
       result.find(
         ([name, value]) =>
-          name === "zone" && value.nickname === "zone_bw011_pop_ambient"
-      )?.[1].faction
-    );
+          name === "zone" && value.nickname === "zone_li01_badlands_nebula"
+      )?.[1]?.faction
+    ).toEqual(["fc_lr_grp", 1]);
   });
 });

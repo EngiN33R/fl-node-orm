@@ -32,5 +32,13 @@ describe("DataContext", () => {
       expect(texture).toBeDefined();
       expect(texture?.byteLength).toBeGreaterThan(0);
     });
+
+    it("should find commodity by nickname", async () => {
+      const commodity = ctx
+        .entity("equipment")
+        .findByNickname("commodity_gold");
+      expect(commodity).toBeDefined();
+      expect(commodity?.nickname).toBe("commodity_gold");
+    });
   });
 });

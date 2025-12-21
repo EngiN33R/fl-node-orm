@@ -468,6 +468,8 @@ export type IniEquipmentCommodity = {
   lootable: boolean;
   units_per_container: number;
   decay_per_second: number;
+  pod_appearance: string;
+  loot_appearance: string;
 };
 
 export type IniEquipmentShape = {

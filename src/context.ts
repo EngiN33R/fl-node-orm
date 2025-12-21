@@ -45,6 +45,7 @@ export class DataContext implements IDataContext {
     equipment: [],
     ship: [],
     npc: [],
+    good: [],
   };
   private maps: { [K in keyof Entity]: Map<string, Entity[K]> } = {
     faction: new Map(),
@@ -55,6 +56,7 @@ export class DataContext implements IDataContext {
     equipment: new Map(),
     ship: new Map(),
     npc: new Map(),
+    good: new Map(),
   };
   public market: MarketModel = new MarketModel(this);
 
@@ -95,14 +97,18 @@ export class DataContext implements IDataContext {
     );
     let i = 0;
     for (const resource of resources) {
-      const dll = await ResourceDll.fromFile(
-        path.join(instancePath, "EXE", resource)
-      );
-      for (const [key, value] of dll.strings.entries()) {
-        this.strings.set(key + i * 65536, value);
-      }
-      for (const [key, value] of dll.infocards.entries()) {
-        this.infocards.set(key + i * 65536, value);
+      try {
+        const dll = await ResourceDll.fromFile(
+          path.join(instancePath, "EXE", resource)
+        );
+        for (const [key, value] of dll.strings.entries()) {
+          this.strings.set(key + i * 65536, value);
+        }
+        for (const [key, value] of dll.infocards.entries()) {
+          this.infocards.set(key + i * 65536, value);
+        }
+      } catch (e) {
+        console.warn(`Failed to load resource ${resource}: ${e}`);
       }
       i++;
     }
@@ -173,23 +179,27 @@ export class DataContext implements IDataContext {
     // Import equipment, ships and goods
     const equipmentPaths = cfg?.findFirst("data")?.asArray("equipment") ?? [];
     const shipsPaths = cfg?.findFirst("data")?.asArray("ships") ?? [];
-    const goodsPaths = cfg?.findFirst("data")?.get("goods") ?? [];
-    const marketsPaths = cfg?.findFirst("data")?.get("markets") ?? [];
-    const loadoutsPaths = cfg?.findFirst("data")?.get("loadouts") ?? [];
+    const goodsPaths = cfg?.findFirst("data")?.asArray("goods") ?? [];
+    const marketsPaths = cfg?.findFirst("data")?.asArray("markets") ?? [];
+    const loadoutsPaths = cfg?.findFirst("data")?.asArray("loadouts") ?? [];
+    const solarsPaths = cfg?.findFirst("data")?.asArray("solar") ?? [];
     for (const path of equipmentPaths) {
-      await this.parseIni(path, "equipment");
+      await this.safeParseIni(path, "equipment");
     }
     for (const path of shipsPaths) {
-      await this.parseIni(path, "ships");
+      await this.safeParseIni(path, "ships");
     }
     for (const path of goodsPaths) {
-      await this.parseIni(path, "goods");
+      await this.safeParseIni(path, "goods");
     }
     for (const path of marketsPaths) {
-      await this.parseIni(path, "markets");
+      await this.safeParseIni(path, "markets");
     }
     for (const path of loadoutsPaths) {
-      await this.parseIni(path, "loadouts");
+      await this.safeParseIni(path, "loadouts");
+    }
+    for (const path of solarsPaths) {
+      await this.safeParseIni(path, "solars");
     }
     const ships = this.ini<{ ship: IniShiparch }>("ships");
 
@@ -242,6 +252,20 @@ export class DataContext implements IDataContext {
       } catch (e) {
         console.warn(`Failed to load system ${ini.nickname}: ${e}`);
       }
+    }
+  }
+
+  async safeParseIni<S extends AnyRecordMap = AnyRecordMap>(
+    relativePath: string,
+    nickname?: string
+  ): Promise<IIniSections<S>> {
+    try {
+      return await this.parseIni(relativePath, nickname);
+    } catch (e) {
+      console.warn(`Failed to parse INI ${relativePath}: ${e}`);
+      const empty = new IniSectionsModel<S>();
+      empty.path = relativePath;
+      return empty;
     }
   }
 
@@ -349,5 +373,14 @@ export class DataContext implements IDataContext {
         `IDS#${relatedId}`)
       : undefined;
     return relatedId ? [self, related as string] : [self];
+  }
+
+  // Utility methods for direct access
+  addString(key: number, value: string) {
+    this.strings.set(key, value);
+  }
+
+  addInfocard(key: number, value: string) {
+    this.infocards.set(key, value);
   }
 }

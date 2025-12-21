@@ -46,6 +46,19 @@ export class UtfTree {
     this.children = {};
   }
 
+  get fullPath() {
+    let current: UtfTree = this;
+    const path: string[] = [];
+    while (current) {
+      path.unshift(current.path);
+      if (!current.parent || current.parent.path === "\\") {
+        break;
+      }
+      current = current.parent;
+    }
+    return path.join("\\");
+  }
+
   put(path: string, data?: ArrayBuffer) {
     const parts = path.split("\\");
     let current: UtfTree = this;
@@ -87,6 +100,26 @@ export class UtfTree {
       }
     }
     return Object.values(current.children);
+  }
+
+  listLeaves() {
+    let current: UtfTree = this;
+    const list: UtfTree[] = [];
+    if (Object.keys(current.children).length === 0) {
+      list.push(current);
+    } else {
+      for (const child of Object.values(current.children)) {
+        list.push(...child.listLeaves().flat());
+      }
+    }
+    return list;
+  }
+
+  toJSON() {
+    return {
+      ...this,
+      fullPath: this.fullPath,
+    };
   }
 }
 

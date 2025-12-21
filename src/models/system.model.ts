@@ -1,4 +1,5 @@
 import {
+  IniLoadout,
   IniSystemObject,
   IniSystemShape,
   IniSystemZone,
@@ -197,6 +198,7 @@ export class ObjectModel implements IObject {
     model.faction = model.#ini.reputation;
     model.loadout = model.#ini.loadout;
     model.parent = model.#ini.parent;
+    model.loadout = model.#ini.loadout;
 
     if (model.#ini.goto) {
       model.goto = {

@@ -282,7 +282,22 @@ export interface IEquipment extends Model<"equipment"> {
   commodity?: {
     decayPerSecond: number;
     lootable: boolean;
+    unitsPerContainer: number;
+    podAppearance: string;
+    lootAppearance: string;
   };
+  good?: IGood;
+}
+
+export interface IGood extends Model<"good"> {
+  equipment: string;
+  category: "commodity" | "equipment";
+  price: number;
+  combinable: boolean;
+  goodSellPrice?: number;
+  badBuyPrice?: number;
+  badSellPrice?: number;
+  goodBuyPrice?: number;
 }
 
 export interface INpc extends Model<"npc"> {
@@ -357,6 +372,7 @@ export type Entity = {
   equipment: IEquipment;
   ship: IShip;
   npc: INpc;
+  good: IGood;
 };
 
 export type EntityType = keyof Entity;
@@ -438,4 +454,5 @@ export interface IDataContext {
   ): Promise<IIniSections<S>>;
   loadUtf(relativePath: string, nickname?: string): Promise<UtfTree>;
   entity<K extends EntityType>(type: K): IEntityQuerier<K>;
+  loadUtf(relativePath: string, nickname?: string): Promise<UtfTree>;
 }
