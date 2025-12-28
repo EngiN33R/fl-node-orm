@@ -174,6 +174,7 @@ export class ObjectModel implements IObject {
   public loadout?: string;
   public nextRing?: string;
   public prevRing?: string;
+  public tradelaneSpaceName?: string;
 
   public goto?: {
     system: string;
@@ -215,6 +216,11 @@ export class ObjectModel implements IObject {
     }
     if (model.#ini.prev_ring) {
       model.prevRing = model.#ini.prev_ring;
+    }
+    if (model.#ini.tradelane_space_name) {
+      model.tradelaneSpaceName = ctx.ids(
+        Number(model.#ini.tradelane_space_name)
+      );
     }
 
     ctx.registerModel(model);

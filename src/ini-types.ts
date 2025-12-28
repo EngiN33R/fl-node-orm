@@ -90,7 +90,7 @@ export type IniSystemObject = {
   ambient?: [number, number, number];
   visit?: number;
   reputation?: string;
-  tradelane_space_name?: string;
+  tradelane_space_name?: number;
   behavior?: string;
   voice?: string;
   space_costume?: [string, string];

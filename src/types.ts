@@ -103,7 +103,7 @@ export interface ISystem extends Model<"system"> {
 
   connections: Array<{
     system: string;
-    type: "jumpgate" | "jumphole";
+    type: "jumpgate" | "jumphole" | "both";
     faction?: string;
   }>;
   tradelanes: Array<{
