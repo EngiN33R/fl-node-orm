@@ -1,5 +1,7 @@
 import { DataContext } from "../context";
-import { Entity } from "../types";
+import { IniSectionsModel } from "../models/ini-section.model";
+import { AnyRecordMap, Entity } from "../types";
+import { Section } from "./ini";
 
 export class DataContextBuilder {
   private readonly ctx = new DataContext();
@@ -14,6 +16,18 @@ export class DataContextBuilder {
 
   with(func: (this: DataContextBuilder, ctx: DataContext) => void) {
     func.call(this, this.ctx);
+    return this;
+  }
+
+  withIni<S extends AnyRecordMap = AnyRecordMap>(
+    handle: string,
+    sections: Section[]
+  ) {
+    const ini = IniSectionsModel.from<S>(this.ctx, {
+      sections,
+      name: handle,
+    });
+    this.ctx.registerIni(handle, ini);
     return this;
   }
 
@@ -49,6 +63,21 @@ export class DataContextBuilder {
 
   withBinary(handle: string, data?: ArrayBuffer) {
     this.ctx.registerBinary(handle, data);
+    return this;
+  }
+
+  withMarketOffer(
+    base: string,
+    equipment: string,
+    meta: {
+      price: number;
+      sold: boolean;
+      rep: number;
+      addons?: Array<{ equipment: string; hardpoint: string; count: number }>;
+    },
+    basePrice?: number
+  ) {
+    this.ctx.market.addOffer(base, equipment, meta, basePrice);
     return this;
   }
 

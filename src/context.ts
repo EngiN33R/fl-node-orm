@@ -20,18 +20,28 @@ import { EquipmentModel, PARSED_SECTION_KEYS } from "./models/equipment.model";
 import {
   IniBaseGood,
   IniConfigShape,
+  IniCraftingRecipe,
   IniEquipmentShape,
+  IniLootBox,
   IniNpcShip,
   IniShiparch,
   IniSystemShape,
   IniUniverseShape,
 } from "./ini-types";
 import { ShipModel } from "./models/ship.model";
-import { MarketModel } from "./models/market.model";
 import { NpcLoadoutModel } from "./models/npc-loadout.model";
+import { ProcurerService } from "./services/procurer.service";
+import { MarketService } from "./services/market.service";
+import { CraftingRecipeModel } from "./models/crafting-recipe.model";
+import { LootBoxModel } from "./models/lootbox.model";
+import { PathfinderService } from "./services/pathfinder.service";
 
 export class DataContext implements IDataContext {
   static readonly INSTANCE = new DataContext();
+
+  public procurer: ProcurerService = new ProcurerService(this);
+  public pathfinder: PathfinderService = new PathfinderService(this);
+  public market: MarketService = new MarketService(this);
 
   public path!: string;
   public dataPath!: string;
@@ -46,6 +56,8 @@ export class DataContext implements IDataContext {
     ship: [],
     npc: [],
     good: [],
+    crafting_recipe: [],
+    lootbox: [],
   };
   private maps: { [K in keyof Entity]: Map<string, Entity[K]> } = {
     faction: new Map(),
@@ -57,8 +69,9 @@ export class DataContext implements IDataContext {
     ship: new Map(),
     npc: new Map(),
     good: new Map(),
+    crafting_recipe: new Map(),
+    lootbox: new Map(),
   };
-  public market: MarketModel = new MarketModel(this);
 
   private strings: Map<number, string> = new Map();
   private infocards: Map<number, string> = new Map();
@@ -85,7 +98,7 @@ export class DataContext implements IDataContext {
 
     const cfg = await IniSectionsModel.from<IniConfigShape>(this, {
       sections: await parseIni(path.join(this.path, "EXE/freelancer.ini")),
-      name: ["freelancer", {}],
+      name: "freelancer",
     });
     if (!cfg) {
       throw new Error("Failed to load freelancer.ini");
@@ -253,6 +266,46 @@ export class DataContext implements IDataContext {
         console.warn(`Failed to load system ${ini.nickname}: ${e}`);
       }
     }
+
+    // FLSR: Try loading crafting recipes
+    const craftingRecipes = await this.safeParseIni(
+      "../EXE/flhook_plugins/FLSR-Crafting.cfg"
+    );
+    for (const recipe of craftingRecipes.sections) {
+      if (recipe.name === "general") {
+        continue;
+      }
+      await CraftingRecipeModel.from(this, {
+        recipe: recipe as unknown as IIniSection<IniCraftingRecipe>,
+      });
+    }
+
+    // FLSR: Try loading lootboxes
+    const lootboxes = await this.safeParseIni(
+      "../EXE/flhook_plugins/FLSR-LootBoxes.cfg"
+    );
+    for (const lootbox of lootboxes.sections) {
+      await LootBoxModel.from(this, {
+        lootbox: lootbox as unknown as IIniSection<IniLootBox>,
+      });
+    }
+
+    // FLSR: Try loading engclass.dll
+    const engclassStrings = new Map<number, string>();
+    const engclassInfocards = new Map<number, string>();
+    try {
+      const dll = await ResourceDll.fromFile(
+        path.join(instancePath, "EXE", "engclass.dll")
+      );
+      for (const [key, value] of dll.strings.entries()) {
+        engclassStrings.set(key, value);
+      }
+      for (const [key, value] of dll.infocards.entries()) {
+        engclassInfocards.set(key, value);
+      }
+    } catch (e) {
+      console.warn(`Failed to load resource engclass.dll: ${e}`);
+    }
   }
 
   async safeParseIni<S extends AnyRecordMap = AnyRecordMap>(
@@ -278,17 +331,26 @@ export class DataContext implements IDataContext {
       sections: await parseIni(
         path.join(this.path, this.dataPath, relativePath)
       ),
-      name: [relativePath, {}],
+      name: relativePath,
     });
     this.inis.set(relativePath, ini);
     if (nickname) {
-      if (this.inis.has(nickname)) {
-        this.inis.get(nickname)!.append(ini);
-      } else {
-        this.inis.set(nickname, ini);
-      }
+      this.registerIni(nickname, ini);
     }
     return ini as unknown as IIniSections<S>;
+  }
+
+  registerIni<S extends AnyRecordMap = AnyRecordMap>(
+    handle: string,
+    ini: IniSectionsModel<S>
+  ) {
+    if (this.inis.has(handle)) {
+      this.inis
+        .get(handle)!
+        .append(ini as unknown as IniSectionsModel<AnyRecordMap>);
+    } else {
+      this.inis.set(handle, ini as unknown as IniSectionsModel<AnyRecordMap>);
+    }
   }
 
   async loadUtf(relativePath: string, nickname?: string) {
@@ -305,6 +367,19 @@ export class DataContext implements IDataContext {
     this.models[model.type as K].push(model);
     if (model.nickname) {
       this.maps[model.type as K].set(model.nickname, model);
+    }
+  }
+
+  unregisterModel<K extends EntityType>(model: Entity[K], strict = true) {
+    let index = this.models[model.type as K].indexOf(model);
+    if (index === -1 && !strict) {
+      index = this.models[model.type as K].findIndex(
+        (m) => m.nickname === model.nickname
+      );
+    }
+    this.models[model.type as K].splice(index, 1);
+    if (model.nickname) {
+      this.maps[model.type as K].delete(model.nickname);
     }
   }
 
@@ -345,8 +420,13 @@ export class DataContext implements IDataContext {
     };
   }
 
-  ids(key: number) {
-    return this.strings.get(key) ?? this.infocards.get(key) ?? `IDS#${key}`;
+  ids(key: number, defaultLabel?: string) {
+    return (
+      this.strings.get(key) ??
+      this.infocards.get(key) ??
+      defaultLabel ??
+      `IDS#${key}`
+    );
   }
 
   findIds(target: string) {
@@ -363,6 +443,21 @@ export class DataContext implements IDataContext {
     return -1;
   }
 
+  findIdsFuzzy(target: string) {
+    const matches: number[] = [];
+    for (const [key, value] of this.strings.entries()) {
+      if (value.toLocaleLowerCase().includes(target.toLocaleLowerCase())) {
+        matches.push(key);
+      }
+    }
+    for (const [key, value] of this.infocards.entries()) {
+      if (value.toLocaleLowerCase().includes(target.toLocaleLowerCase())) {
+        matches.push(key);
+      }
+    }
+    return matches;
+  }
+
   idsWithRelated(key: number): [string] | [string, string] {
     const self =
       this.infocards.get(key) ?? this.strings.get(key) ?? `IDS#${key}`;
@@ -373,6 +468,89 @@ export class DataContext implements IDataContext {
         `IDS#${relatedId}`)
       : undefined;
     return relatedId ? [self, related as string] : [self];
+  }
+
+  findLabel(nickname: string) {
+    const equipment = this.entity("equipment").findByNickname(nickname);
+    if (equipment) {
+      return equipment.name;
+    }
+    const ship = this.entity("ship").findByNickname(nickname);
+    if (ship) {
+      return ship.name;
+    }
+    const system = this.entity("system").findByNickname(nickname);
+    if (system) {
+      return system.name;
+    }
+    const object = this.entity("object").findByNickname(nickname);
+    if (object) {
+      return object.name;
+    }
+    const zone = this.entity("zone").findByNickname(nickname);
+    if (zone) {
+      return zone.name;
+    }
+    const base = this.entity("base").findByNickname(nickname);
+    if (base) {
+      return base.name;
+    }
+    const faction = this.entity("faction").findByNickname(nickname);
+    if (faction) {
+      return faction.name;
+    }
+    const tradelane = this.entity("system")
+      .findFirst((s) =>
+        s.tradelanes.some((tl) => tl.rings.some((r) => r.nickname === nickname))
+      )
+      ?.tradelanes.flatMap((tl) => tl.rings)
+      .find((r) => r.nickname === nickname);
+    if (tradelane) {
+      return tradelane.name;
+    }
+
+    // Hardpoints
+    if (nickname.startsWith("hp_")) {
+      if (nickname.startsWith("hp_fighter_shield_special_")) {
+        const level = Number(
+          nickname.replace("hp_fighter_shield_special_", "")
+        );
+        return this.ids(1700 + level - 1, nickname);
+      }
+      if (nickname.startsWith("hp_elite_shield_special_")) {
+        const level = Number(nickname.replace("hp_elite_shield_special_", ""));
+        return this.ids(1710 + level, nickname);
+      }
+      if (nickname.startsWith("hp_freighter_shield_special_")) {
+        const level = Number(
+          nickname.replace("hp_freighter_shield_special_", "")
+        );
+        return this.ids(1720 + level, nickname);
+      }
+      if (nickname.startsWith("hp_gun_special_")) {
+        const level = Number(nickname.replace("hp_gun_special_", ""));
+        return this.ids(1525 + level - 1, nickname);
+      }
+      if (nickname.startsWith("hp_turret_special_")) {
+        const level = Number(nickname.replace("hp_turret_special_", ""));
+        return this.ids(1731 + level - 1, nickname);
+      }
+      switch (nickname) {
+        case "hp_thruster":
+          return this.ids(1520);
+        case "hp_mine_dropper":
+          return this.ids(1522);
+        case "hp_countermeasure_dropper":
+          return this.ids(1523);
+        case "hp_thruster":
+          return this.ids(1524);
+        case "hp_torpedo_special_1":
+          return this.ids(1741);
+        case "hp_torpedo_special_2":
+          return this.ids(1742);
+      }
+    }
+    return nickname;
   }
 
   // Utility methods for direct access

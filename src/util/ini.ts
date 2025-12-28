@@ -130,7 +130,8 @@ export async function parseFile(path: string): Promise<ParsedSection[]> {
   const contents = await fs.readFile(path, { encoding: "latin1" }); // files are case insensitive
   const cleanedContents = contents
     .toLowerCase()
-    .replace(DELIMITER_COMMENT + SECTION_NAME_START, ""); // delete commented section markers
+    .replace(DELIMITER_COMMENT + SECTION_NAME_START, "") // delete commented section markers
+    .replace(DELIMITER_COMMENT + " " + SECTION_NAME_START, ""); // delete commented section markers
   return cleanedContents
     .split(SECTION_NAME_START)
     .map(parseSection)
@@ -153,6 +154,7 @@ export function parseSection(section: string): ParsedSection | null {
   try {
     const entries = entriesStr
       .split("\n")
+      .filter((l) => !l.startsWith(DELIMITER_COMMENT))
       .map(parseEntry)
       .filter(Boolean) as Entry[];
     return [sectionName, entries];

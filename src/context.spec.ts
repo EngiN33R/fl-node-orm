@@ -1,3 +1,4 @@
+import { writeFileSync } from "fs";
 import { DataContext } from "./context";
 import { IDataContext } from "./types";
 
@@ -39,6 +40,41 @@ describe("DataContext", () => {
         .findByNickname("commodity_gold");
       expect(commodity).toBeDefined();
       expect(commodity?.nickname).toBe("commodity_gold");
+    });
+
+    it("should find equipment by nickname", async () => {
+      const equipment = ctx
+        .entity("equipment")
+        .findByNickname("li_gun_laser_light01");
+      expect(equipment).toBeDefined();
+      expect(equipment?.nickname).toBe("li_gun_laser_light01");
+    });
+
+    it("should find crafting recipe by nickname", async () => {
+      const recipe = ctx.entity("crafting_recipe").findByNickname("boron");
+      expect(recipe).toBeDefined();
+      expect(recipe?.nickname).toBe("boron");
+    });
+
+    it("should find equipment class label", async () => {
+      // console.log(
+      //   new Array(100).fill(0).map((_, i) => {
+      //     const ids = 1500 + i;
+      //     return `${ids}: ${ctx.ids(ids)}`;
+      //   })
+      // );
+      // console.log(
+      //   new Array(100).fill(0).map((_, i) => {
+      //     const ids = 1600 + i;
+      //     return `${ids}: ${ctx.ids(ids)}`;
+      //   })
+      // );
+      // console.log(
+      //   new Array(100).fill(0).map((_, i) => {
+      //     const ids = 1700 + i;
+      //     return `${ids}: ${ctx.ids(ids)}`;
+      //   })
+      // );
     });
   });
 });

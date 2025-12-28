@@ -70,6 +70,8 @@ export interface IObject extends Model<"object"> {
   faction?: string;
   parent?: string;
   loadout?: string;
+  nextRing?: string;
+  prevRing?: string;
 
   goto?: {
     system: string;
@@ -107,6 +109,7 @@ export interface ISystem extends Model<"system"> {
   tradelanes: Array<{
     startPosition: [number, number, number];
     endPosition: [number, number, number];
+    rings: IObject[];
     faction?: string;
   }>;
 
@@ -189,6 +192,7 @@ export interface IEquipment extends Model<"equipment"> {
     | "cloak"
     | "commodity";
   class: string;
+  lootable: boolean;
 
   gun?: {
     damageType: string;
@@ -281,7 +285,6 @@ export interface IEquipment extends Model<"equipment"> {
   };
   commodity?: {
     decayPerSecond: number;
-    lootable: boolean;
     unitsPerContainer: number;
     podAppearance: string;
     lootAppearance: string;
@@ -311,6 +314,28 @@ export interface INpc extends Model<"npc"> {
   cargo: Array<{
     equipment: string;
     count: number;
+  }>;
+}
+
+export interface ICraftingRecipe extends Model<"crafting_recipe"> {
+  product: {
+    good: string;
+    amount: number;
+  };
+  ingredients: Array<{
+    good: string;
+    amount: number;
+  }>;
+  bases: string[];
+  cost: number;
+}
+
+export interface ILootBox extends Model<"lootbox"> {
+  nickname: string;
+  items: Array<{
+    good: string;
+    chance: number;
+    weight: number;
   }>;
 }
 
@@ -373,6 +398,8 @@ export type Entity = {
   ship: IShip;
   npc: INpc;
   good: IGood;
+  crafting_recipe: ICraftingRecipe;
+  lootbox: ILootBox;
 };
 
 export type EntityType = keyof Entity;
@@ -396,6 +423,69 @@ export interface IMarketQuerier {
   getSoldAt(equipment: string): string[];
 }
 
+export type ProcurementSource =
+  | "market"
+  | "npc_loot"
+  | "wreck_loot"
+  | "crafting"
+  | "lootbox"
+  | "mining";
+
+export type ProcurementDetails =
+  | {
+      type: "market";
+      base: string;
+      system: string;
+      position: [number, number, number];
+      rep: number;
+      price: number;
+    }
+  | {
+      type: "npc_loot";
+      loadout: string;
+      faction: string;
+    }
+  | {
+      type: "wreck_loot";
+      object: string;
+      system: string;
+      position: [number, number, number];
+    }
+  | {
+      type: "crafting";
+      recipe: ICraftingRecipe;
+    }
+  | {
+      type: "lootbox";
+      box: string;
+      chance: number;
+    }
+  | {
+      type: "mining";
+      zone: string;
+      system: string;
+      position: [number, number, number];
+      difficulty: number;
+    };
+
+export interface IProcurementQuerier {
+  getProcurementDetails(nickname: string): ProcurementDetails[];
+}
+
+export type NavigationLocation = {
+  position: [number, number, number];
+  system: string;
+  object?: string;
+  faction?: string;
+};
+
+export type NavigationWaypoint = {
+  type: "cruise" | "tradelane" | "jump";
+  from: NavigationLocation;
+  to: NavigationLocation;
+  duration: number;
+};
+
 export interface IDataContext {
   path: string;
   dataPath: string;
@@ -407,6 +497,7 @@ export interface IDataContext {
    * @param model Model to register.
    */
   registerModel<K extends EntityType>(model: Entity[K]): void;
+  unregisterModel<K extends EntityType>(model: Entity[K]): void;
   /**
    * Register binary data.
    * @param data Data to register. If `undefined`, does nothing.

@@ -70,6 +70,7 @@ export class EquipmentModel implements IEquipment {
   public hitpoints!: number;
   public mass!: number;
   public volume!: number;
+  public lootable!: boolean;
 
   public kind!: IEquipment["kind"];
   public class!: string;
@@ -216,15 +217,20 @@ export class EquipmentModel implements IEquipment {
     }
     model.icon = (good?.get("item_icon") ?? "").replace(/\\/g, "/");
     if (model.icon && !ctx.binary(`${model.nickname}_icon`)) {
-      const utf = await ctx.loadUtf(model.icon);
-      ctx.registerBinary(
-        `${model.nickname}_icon`,
-        utf.get("Texture library")?.first()?.first()?.data
-      );
+      try {
+        const utf = await ctx.loadUtf(model.icon);
+        ctx.registerBinary(
+          `${model.nickname}_icon`,
+          utf.get("Texture library")?.first()?.first()?.data
+        );
+      } catch (e) {
+        console.warn(`Failed to load item icon for ${model.nickname}: ${e}`);
+      }
     }
 
     model.mass = "mass" in values ? values.mass : 0;
     model.volume = "volume" in values ? values.volume : 0;
+    model.lootable = "lootable" in values ? values.lootable : false;
 
     if (def.ini[0] === "gun") {
       const gun = def.ini[1];
@@ -404,7 +410,6 @@ export class EquipmentModel implements IEquipment {
       model.hardpoint = "hp_commodity";
       model.commodity = {
         decayPerSecond: commodity.decay_per_second,
-        lootable: commodity.lootable,
         unitsPerContainer: commodity.units_per_container,
         podAppearance: commodity.pod_appearance,
         lootAppearance: commodity.loot_appearance,

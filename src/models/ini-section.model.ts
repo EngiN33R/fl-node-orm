@@ -28,7 +28,7 @@ export class IniSectionModel<
 
   #ctx!: IDataContext;
 
-  static async from<S extends AnyRecord = AnyRecord, K extends string = string>(
+  static from<S extends AnyRecord = AnyRecord, K extends string = string>(
     ctx: IDataContext,
     inputs: { section: Section }
   ) {
@@ -99,14 +99,14 @@ export class IniSectionsModel<S extends AnyRecordMap = AnyRecordMap>
     return this.#rawSections;
   }
 
-  static async from<S extends AnyRecordMap = AnyRecordMap>(
+  static from<S extends AnyRecordMap = AnyRecordMap>(
     ctx: IDataContext,
-    inputs: { sections: Section[]; name: Section }
+    inputs: { sections: Section[]; name: string }
   ) {
     const model = new IniSectionsModel<S>();
-    model.path = inputs.name[0];
+    model.path = inputs.name;
     for (const section of inputs.sections) {
-      const sectionModel = await IniSectionModel.from<Unarray<S[Key<S>]>>(ctx, {
+      const sectionModel = IniSectionModel.from<Unarray<S[Key<S>]>>(ctx, {
         section,
       });
       model.#rawSections.push(sectionModel);

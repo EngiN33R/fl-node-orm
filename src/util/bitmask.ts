@@ -29,7 +29,17 @@ export class Bitmask<Flags extends string> {
   }
 
   static define<Flags extends string>(flags: Flags[], zero?: Flags) {
-    return (value: number) => new Bitmask(flags, zero, value);
+    const build = (value: number) => new Bitmask(flags, zero, value);
+
+    build.from = (input: Flags[]) => {
+      let value = 0;
+      for (const flag of input) {
+        value |= 1 << flags.indexOf(flag);
+      }
+      return new Bitmask(flags, zero, value);
+    };
+
+    return build;
   }
 
   get [Symbol.toStringTag]() {

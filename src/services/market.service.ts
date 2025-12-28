@@ -4,19 +4,22 @@ import {
   IniShipGood,
   IniShipHullGood,
 } from "../ini-types";
-import { IDataContext, IIniSection, IMarketQuerier } from "../types";
+import {
+  IDataContext,
+  IEquipment,
+  IIniSection,
+  IMarketQuerier,
+  IShip,
+} from "../types";
 import { BiMapSet } from "../util/bimap";
 
 type MapValue = {
   price: number;
-  underlying: any;
+  underlying: IEquipment | IShip | undefined;
   addons?: Array<{ equipment: string; hardpoint: string; count: number }>;
 };
 
-export class MarketModel implements IMarketQuerier {
-  public nickname = "global_market";
-  public type = "market" as const;
-
+export class MarketService implements IMarketQuerier {
   #ctx: IDataContext;
   #map = new Map<string, MapValue>();
   #secondaryMap = new Map<string, MapValue>();
@@ -70,6 +73,9 @@ export class MarketModel implements IMarketQuerier {
           const ship = this.#ctx
             .entity("ship")
             .findByNickname(hull.get("ship"));
+          if (!ship) {
+            return;
+          }
           const value = {
             price: hull.get("price"),
             underlying: ship,
@@ -95,15 +101,43 @@ export class MarketModel implements IMarketQuerier {
         continue;
       }
       const { price: basePrice, underlying, addons } = good;
+      if (!underlying) {
+        continue;
+      }
       const price = basePrice * multiplier;
-      this.#offers.set(basegood.get("base"), underlying);
+      this.#offers.set(basegood.get("base"), underlying.nickname);
       this.#meta.set(`${underlying.nickname}@${basegood.get("base")}`, {
         price,
-        sold: min > 0 && stock > 0,
+        sold:
+          underlying?.type === "equipment" && underlying.kind === "commodity"
+            ? min > 0 && stock > 0
+            : true,
         rep,
         addons,
       });
     }
+  }
+
+  addOffer(
+    base: string,
+    nickname: string,
+    meta: {
+      price: number;
+      sold: boolean;
+      rep: number;
+      addons?: Array<{ equipment: string; hardpoint: string; count: number }>;
+    },
+    basePrice?: number
+  ) {
+    const equipment = this.#ctx.entity("equipment").findByNickname(nickname);
+
+    this.#offers.set(base, nickname);
+    this.#map.set(nickname, {
+      price: basePrice ?? meta.price,
+      underlying: equipment,
+      addons: meta.addons,
+    });
+    this.#meta.set(`${nickname}@${base}`, meta);
   }
 
   getBases(equipment: string) {
@@ -130,7 +164,7 @@ export class MarketModel implements IMarketQuerier {
   getGoods(base: string) {
     return [...(this.#offers.get(base) ?? [])].map((e) => ({
       equipment: e,
-      ...this.getGood(base, e.nickname),
+      ...this.getGood(base, e),
     }));
   }
 

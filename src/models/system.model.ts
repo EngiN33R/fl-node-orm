@@ -172,6 +172,8 @@ export class ObjectModel implements IObject {
   public faction?: string;
   public parent?: string;
   public loadout?: string;
+  public nextRing?: string;
+  public prevRing?: string;
 
   public goto?: {
     system: string;
@@ -208,6 +210,13 @@ export class ObjectModel implements IObject {
       };
     }
 
+    if (model.#ini.next_ring) {
+      model.nextRing = model.#ini.next_ring;
+    }
+    if (model.#ini.prev_ring) {
+      model.prevRing = model.#ini.prev_ring;
+    }
+
     ctx.registerModel(model);
 
     return model;
@@ -232,6 +241,8 @@ export class SystemModel implements ISystem {
   public tradelanes: Array<{
     startPosition: [number, number, number];
     endPosition: [number, number, number];
+    rings: IObject[];
+    faction?: string;
   }> = [];
 
   public zones: ZoneModel[] = [];
@@ -276,13 +287,39 @@ export class SystemModel implements ISystem {
     for (const definition of objects) {
       const object = definition.ini[1];
       if (object.next_ring && !object.prev_ring) {
+        const rings: IObject[] = [
+          await ObjectModel.from(ctx, {
+            system: inputs.universe.get("nickname"),
+            definition,
+          }),
+        ];
         let endPosition = object.pos;
         let latestRing = objectMap[object.next_ring].ini[1];
+        rings.push(
+          await ObjectModel.from(ctx, {
+            system: inputs.universe.get("nickname"),
+            definition: objectMap[object.next_ring],
+          })
+        );
         while (latestRing.next_ring) {
+          rings.push(
+            await ObjectModel.from(ctx, {
+              system: inputs.universe.get("nickname"),
+              definition: objectMap[latestRing.next_ring],
+            })
+          );
           latestRing = objectMap[latestRing.next_ring].ini[1];
         }
         endPosition = latestRing.pos;
-        model.tradelanes.push({ startPosition: object.pos, endPosition });
+        for (const ring of rings) {
+          ctx.unregisterModel(ring);
+        }
+        model.tradelanes.push({
+          startPosition: object.pos,
+          endPosition,
+          rings,
+          faction: object.reputation,
+        });
       }
       if (object.goto) {
         model.connections.push({

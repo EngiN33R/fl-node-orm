@@ -606,3 +606,15 @@ export type IniLoadout = {
   equip: Array<[equipment: string, hardpoint?: string]>;
   cargo?: Array<[cargo: string, count: number]>;
 };
+
+export type IniCraftingRecipe = {
+  product: [good: string, amount: number];
+  ingredient: Array<[good: string, amount: number]>;
+  base_nickname: string[];
+  cost: number;
+};
+
+export type IniLootBox = {
+  box_nickname: string;
+  loot_item: Array<[good: string, weight: number]>;
+};
