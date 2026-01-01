@@ -179,7 +179,9 @@ export class PathfinderService {
     const tradelaneRings =
       this.ctx
         .findByNickname("system", from.system)
-        ?.tradelanes.flatMap((tl) => tl.rings) ?? [];
+        ?.tradelanes.flatMap((tl) =>
+          tl.rings.map((ring) => ({ ...ring, tradelane: tl }))
+        ) ?? [];
 
     if (tradelaneRings.length === 0 || system.tradelanes.length === 0) {
       return [];
@@ -194,7 +196,7 @@ export class PathfinderService {
       id: string;
       position: [number, number, number];
       type: "start" | "end" | "ring";
-      ring?: IObject; // Only for ring nodes
+      ring?: IObject & { tradelane: { names: [string, string] } }; // Only for ring nodes
     };
 
     const nodes: GraphNode[] = [
@@ -214,6 +216,8 @@ export class PathfinderService {
       to: string;
       weight: number; // travel time
       type: "cruise" | "tradelane";
+      fromIndex?: number;
+      toIndex?: number;
     };
 
     const edges: GraphEdge[] = [];
@@ -252,6 +256,8 @@ export class PathfinderService {
               to: nextRing.nickname,
               weight: time,
               type: "tradelane",
+              fromIndex: ring.tradelaneIndex,
+              toIndex: nextRing.tradelaneIndex,
             });
           }
         }
@@ -265,6 +271,8 @@ export class PathfinderService {
               to: prevRing.nickname,
               weight: time,
               type: "tradelane",
+              fromIndex: ring.tradelaneIndex,
+              toIndex: prevRing.tradelaneIndex,
             });
           }
         }
@@ -309,7 +317,14 @@ export class PathfinderService {
       type: string;
       ring?: IObject;
     }>,
-    edges: Array<{ from: string; to: string; weight: number; type: string }>,
+    edges: Array<{
+      from: string;
+      to: string;
+      weight: number;
+      type: string;
+      fromIndex?: number;
+      toIndex?: number;
+    }>,
     start: string,
     end: string
   ): string[] | null {
@@ -374,9 +389,16 @@ export class PathfinderService {
       id: string;
       position: [number, number, number];
       type: string;
-      ring?: IObject;
+      ring?: IObject & { tradelane: { names: [string, string] } };
     }>,
-    edges: Array<{ from: string; to: string; weight: number; type: string }>,
+    edges: Array<{
+      from: string;
+      to: string;
+      weight: number;
+      type: string;
+      fromIndex?: number;
+      toIndex?: number;
+    }>,
     from: NavigationLocation,
     to: NavigationLocation
   ): NavigationWaypoint[] {
@@ -423,10 +445,18 @@ export class PathfinderService {
         // Create combined tradelane waypoint
         const tradelaneStartNode = nodeMap.get(fromId)!;
         const tradelaneEndNode = nodeMap.get(path[tradelaneEndIndex])!;
+        const direction = Math.sign(
+          (tradelaneEndNode.ring?.tradelaneIndex ?? 0) -
+            (tradelaneStartNode.ring?.tradelaneIndex ?? 0)
+        );
 
         const fromLoc: NavigationLocation = {
           position: tradelaneStartNode.position,
           system: from.system,
+          name:
+            direction > 0
+              ? tradelaneStartNode.ring?.tradelane?.names[0]
+              : tradelaneStartNode.ring?.tradelane?.names[1],
         };
         if (tradelaneStartNode.type === "start") {
           Object.assign(fromLoc, from);
@@ -440,6 +470,10 @@ export class PathfinderService {
         const toLoc: NavigationLocation = {
           position: tradelaneEndNode.position,
           system: from.system,
+          name:
+            direction > 0
+              ? tradelaneStartNode.ring?.tradelane?.names[0]
+              : tradelaneStartNode.ring?.tradelane?.names[1],
         };
         if (tradelaneEndNode.type === "end") {
           Object.assign(toLoc, to);

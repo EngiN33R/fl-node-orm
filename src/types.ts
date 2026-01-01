@@ -72,6 +72,8 @@ export interface IObject extends Model<"object"> {
   loadout?: string;
   nextRing?: string;
   prevRing?: string;
+  tradelaneSpaceName?: string;
+  tradelaneIndex?: number;
 
   goto?: {
     system: string;
@@ -110,6 +112,7 @@ export interface ISystem extends Model<"system"> {
     startPosition: [number, number, number];
     endPosition: [number, number, number];
     rings: IObject[];
+    names: [string, string];
     faction?: string;
   }>;
 
@@ -477,6 +480,7 @@ export type NavigationLocation = {
   system: string;
   object?: string;
   faction?: string;
+  name?: string;
 };
 
 export type NavigationWaypoint = {

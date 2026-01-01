@@ -248,6 +248,7 @@ export class SystemModel implements ISystem {
     startPosition: [number, number, number];
     endPosition: [number, number, number];
     rings: IObject[];
+    names: [string, string];
     faction?: string;
   }> = [];
 
@@ -299,6 +300,7 @@ export class SystemModel implements ISystem {
             definition,
           }),
         ];
+        const startName = rings[0].tradelaneSpaceName;
         let endPosition = object.pos;
         let latestRing = objectMap[object.next_ring].ini[1];
         rings.push(
@@ -317,13 +319,21 @@ export class SystemModel implements ISystem {
           latestRing = objectMap[latestRing.next_ring].ini[1];
         }
         endPosition = latestRing.pos;
+        const endName = rings[rings.length - 1].tradelaneSpaceName;
         for (const ring of rings) {
           ctx.unregisterModel(ring);
         }
         model.tradelanes.push({
           startPosition: object.pos,
           endPosition,
-          rings,
+          rings: rings.map((r, i) => ({
+            ...r,
+            tradelaneIndex: i,
+          })),
+          names: [
+            `${startName ?? "?"} -> ${endName ?? "?"}`,
+            `${endName ?? "?"} -> ${startName ?? "?"}`,
+          ],
           faction: object.reputation,
         });
       }
