@@ -82,6 +82,7 @@ const MOCK_CONTEXT = DataContextBuilder.begin()
         archetype: "tradelane",
         visit: ObjectVisitBitmask.from(["DISCOVERED"]),
         faction: "li_n_grp",
+        tradelaneIndex: y / 10 - 1,
       };
       TRADELANE_1.push(tradelane);
     }
@@ -112,6 +113,7 @@ const MOCK_CONTEXT = DataContextBuilder.begin()
           endPosition: [10, 50, 0],
           rings: TRADELANE_1,
           faction: "li_n_grp",
+          names: ["1 Start -> 1 End", "1 End -> 1 Start"],
         },
       ],
       objects: [JUMPGATE_1_2, JUMPHOLE_1_2],
@@ -177,6 +179,7 @@ const MOCK_CONTEXT = DataContextBuilder.begin()
         archetype: "tradelane",
         visit: ObjectVisitBitmask.from(["DISCOVERED"]),
         faction: "li_n_grp",
+        tradelaneIndex: x / 10,
       };
       TRADELANE_2.push(tradelane);
     }
@@ -210,6 +213,7 @@ const MOCK_CONTEXT = DataContextBuilder.begin()
           endPosition: [40, 0, 0],
           rings: TRADELANE_2,
           faction: "li_n_grp",
+          names: ["2 Start -> 2 End", "2 End -> 2 Start"],
         },
       ],
       zones: [],
@@ -248,6 +252,7 @@ const MOCK_CONTEXT = DataContextBuilder.begin()
         archetype: "tradelane",
         visit: ObjectVisitBitmask.from(["DISCOVERED"]),
         faction: "li_n_grp",
+        tradelaneIndex: y / 10 - 1,
       };
       TRADELANE_3A.push(tradelane);
     }
@@ -265,6 +270,7 @@ const MOCK_CONTEXT = DataContextBuilder.begin()
         archetype: "tradelane",
         visit: ObjectVisitBitmask.from(["DISCOVERED"]),
         faction: "li_n_grp",
+        tradelaneIndex: 4 - x / 10,
       };
       TRADELANE_3B.push(tradelane);
     }
@@ -289,12 +295,14 @@ const MOCK_CONTEXT = DataContextBuilder.begin()
           endPosition: [50, 50, 0],
           rings: TRADELANE_3A,
           faction: "li_n_grp",
+          names: ["3A Start -> 3A End", "3A End -> 3A Start"],
         },
         {
           startPosition: [40, 50, 0],
           endPosition: [10, 50, 0],
           rings: TRADELANE_3B,
           faction: "li_n_grp",
+          names: ["3B Start -> 3B End", "3B End -> 3B Start"],
         },
       ],
       zones: [],
@@ -480,12 +488,14 @@ describe("PathfinderService", () => {
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_10",
+            name: "1 Start -> 1 End",
           },
           to: {
             position: [10, 50, 0],
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_50",
+            name: "1 Start -> 1 End",
           },
           duration: 40 / pathfinder.tradelaneSpeed,
         },
@@ -539,12 +549,14 @@ describe("PathfinderService", () => {
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_10",
+            name: "1 Start -> 1 End",
           },
           to: {
             position: [10, 30, 0],
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_30",
+            name: "1 Start -> 1 End",
           },
           duration: 20 / pathfinder.tradelaneSpeed,
         },
@@ -593,12 +605,14 @@ describe("PathfinderService", () => {
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_10",
+            name: "1 Start -> 1 End",
           },
           to: {
             position: [10, 50, 0],
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_50",
+            name: "1 Start -> 1 End",
           },
           duration: 8, // distance 40 / speed 5
         },
@@ -679,12 +693,14 @@ describe("PathfinderService", () => {
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_10",
+            name: "1 Start -> 1 End",
           },
           to: {
             position: [10, 50, 0],
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_50",
+            name: "1 Start -> 1 End",
           },
           duration: 40 / pathfinder.tradelaneSpeed,
         },
@@ -743,12 +759,14 @@ describe("PathfinderService", () => {
             system: "system_2",
             object: "tradelane_2_40_0",
             faction: "li_n_grp",
+            name: "2 End -> 2 Start",
           },
           to: {
             position: [20, 0, 0],
             system: "system_2",
             object: "tradelane_2_20_0",
             faction: "li_n_grp",
+            name: "2 End -> 2 Start",
           },
           duration: 20 / pathfinder.tradelaneSpeed,
         },
@@ -797,12 +815,14 @@ describe("PathfinderService", () => {
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_10",
+            name: "1 Start -> 1 End",
           },
           to: {
             position: [10, 50, 0],
             system: "system_1",
             faction: "li_n_grp",
             object: "tradelane_1_10_50",
+            name: "1 Start -> 1 End",
           },
           duration: 40 / pathfinder.tradelaneSpeed,
         },
@@ -912,12 +932,14 @@ describe("PathfinderService", () => {
             system: "system_3",
             object: "tradelane_3a_50_10",
             faction: "li_n_grp",
+            name: "3A Start -> 3A End",
           },
           to: {
             position: [50, 40, 0],
             system: "system_3",
             object: "tradelane_3a_50_40",
             faction: "li_n_grp",
+            name: "3A Start -> 3A End",
           },
           duration: 30 / pathfinder.tradelaneSpeed,
         },
@@ -944,12 +966,14 @@ describe("PathfinderService", () => {
             system: "system_3",
             object: "tradelane_3b_40_50",
             faction: "li_n_grp",
+            name: "3B Start -> 3B End",
           },
           to: {
             position: [10, 50, 0],
             system: "system_3",
             object: "tradelane_3b_10_50",
             faction: "li_n_grp",
+            name: "3B Start -> 3B End",
           },
           duration: 30 / pathfinder.tradelaneSpeed,
         },
@@ -963,6 +987,79 @@ describe("PathfinderService", () => {
           },
           to: { position: [0, 50, 0], system: "system_3" },
           duration: 10 / pathfinder.cruiseSpeed,
+        },
+      ]);
+    });
+
+    it("should not find a path through an excluded system", () => {
+      const result = pathfinder.findPath(
+        {
+          position: [0, 0, 0],
+          system: "system_1",
+        },
+        {
+          position: [30, 20, 0],
+          system: "system_3",
+        },
+        {
+          excludedSystems: ["system_2"],
+        }
+      );
+
+      expect(result).toEqual([]);
+    });
+
+    it("should find a path through jumpholes if jumpgates excluded", () => {
+      const result = pathfinder.findPath(
+        {
+          position: [0, 0, 0],
+          system: "system_1",
+        },
+        {
+          position: [50, 10, 0],
+          system: "system_2",
+        },
+        {
+          flags: ["NO_JUMPGATE"],
+        }
+      );
+
+      expect(result).toEqual([
+        {
+          type: "cruise",
+          from: { position: [0, 0, 0], system: "system_1" },
+          to: {
+            position: [40, 0, 0],
+            faction: undefined,
+            system: "system_1",
+            object: "jumphole_1_2",
+          },
+          duration: 40 / pathfinder.cruiseSpeed,
+        },
+        {
+          type: "jump",
+          from: {
+            position: [40, 0, 0],
+            faction: undefined,
+            system: "system_1",
+            object: "jumphole_1_2",
+          },
+          to: {
+            position: [0, 50, 0],
+            system: "system_2",
+            object: "jumphole_2_1",
+          },
+          duration: 0,
+        },
+        {
+          type: "cruise",
+          from: {
+            position: [0, 50, 0],
+            system: "system_2",
+            object: "jumphole_2_1",
+          },
+          to: { position: [50, 10, 0], system: "system_2" },
+          duration: Math.sqrt(50 ** 2 + 40 ** 2) / pathfinder.cruiseSpeed,
         },
       ]);
     });

@@ -113,27 +113,34 @@ export class PathfinderService {
    *
    * @param from Origin location
    * @param to Destination location
-   * @param flags
+   * @param flags Optional flags to control pathfinding behavior
+   * @param excludedSystems Optional list of system nicknames to exclude from paths
    * @returns
    */
   findPath(
     from: NavigationLocation,
     to: NavigationLocation,
-    flags: Flag[] = []
+    options: {
+      flags?: Flag[];
+      excludedSystems?: string[];
+    } = {}
   ): NavigationWaypoint[] {
     if (from.system === to.system) {
-      return this.findPathWithinSystem(from, to, flags);
+      return this.findPathWithinSystem(from, to, options);
     } else {
-      return this.findPathBetweenSystems(from, to, flags);
+      return this.findPathBetweenSystems(from, to, options);
     }
   }
 
   private findPathWithinSystem(
     from: NavigationLocation,
     to: NavigationLocation,
-    flags: Flag[]
+    options: {
+      flags?: Flag[];
+      excludedSystems?: string[];
+    } = {}
   ): NavigationWaypoint[] {
-    const useTradelanes = !flags.includes("NO_TRADELANE");
+    const useTradelanes = !options.flags?.includes("NO_TRADELANE");
 
     if (!useTradelanes) {
       const cruiseDistance = this.distance(from.position, to.position);
@@ -678,10 +685,15 @@ export class PathfinderService {
   private findPathBetweenSystems(
     from: NavigationLocation,
     to: NavigationLocation,
-    flags: Flag[]
+    options: {
+      flags?: Flag[];
+      excludedSystems?: string[];
+    } = {}
   ): NavigationWaypoint[] {
+    const { flags = [] } = options;
+
     // Find the shortest path through systems using BFS
-    const systemPath = this.findSystemPath(from.system, to.system, flags);
+    const systemPath = this.findSystemPath(from.system, to.system, options);
 
     if (systemPath.length === 0) {
       return [];
@@ -720,7 +732,7 @@ export class PathfinderService {
             object: jump.from.object,
             faction: jump.from.faction,
           },
-          flags
+          options
         );
 
         const timeToJump = this.calculatePathTime(pathToJump);
@@ -744,7 +756,7 @@ export class PathfinderService {
           object: bestJump.from.object,
           faction: bestJump.from.faction,
         },
-        flags
+        options
       );
       waypoints.push(...pathToJump);
 
@@ -764,7 +776,7 @@ export class PathfinderService {
     const pathFromLastJump = this.findPathWithinSystem(
       currentLocation,
       to,
-      flags
+      options
     );
     waypoints.push(...pathFromLastJump);
 
@@ -774,10 +786,23 @@ export class PathfinderService {
   private findSystemPath(
     fromSystem: string,
     toSystem: string,
-    flags: Flag[]
+    options: {
+      flags?: Flag[];
+      excludedSystems?: string[];
+    } = {}
   ): string[] {
+    const { flags = [], excludedSystems = [] } = options;
+
     // If same system, return empty (handled by caller)
     if (fromSystem === toSystem) {
+      return [];
+    }
+
+    // Check if start or end system is excluded
+    if (
+      excludedSystems.includes(fromSystem) ||
+      excludedSystems.includes(toSystem)
+    ) {
       return [];
     }
 
@@ -788,7 +813,7 @@ export class PathfinderService {
     }
 
     // Build a graph of system connections
-    const systemGraph = this.buildSystemGraph(flags);
+    const systemGraph = this.buildSystemGraph(flags, excludedSystems);
 
     // Use BFS to find shortest path
     const queue: Array<{ system: string; path: string[] }> = [
@@ -801,6 +826,11 @@ export class PathfinderService {
 
       const neighbors = systemGraph.get(system) || [];
       for (const neighbor of neighbors) {
+        // Skip excluded systems
+        if (excludedSystems.includes(neighbor)) {
+          continue;
+        }
+
         if (neighbor === toSystem) {
           return [...path, neighbor];
         }
@@ -815,13 +845,21 @@ export class PathfinderService {
     return [];
   }
 
-  private buildSystemGraph(flags: Flag[]): Map<string, string[]> {
+  private buildSystemGraph(
+    flags: Flag[],
+    excludedSystems: string[] = []
+  ): Map<string, string[]> {
     const graph = new Map<string, Set<string>>();
 
     // Get all systems
     const allSystems = this.ctx.entity("system").findAll();
 
     for (const system of allSystems) {
+      // Skip excluded systems
+      if (excludedSystems.includes(system.nickname)) {
+        continue;
+      }
+
       if (!graph.has(system.nickname)) {
         graph.set(system.nickname, new Set());
       }
@@ -846,7 +884,10 @@ export class PathfinderService {
         }
 
         const targetSystem = obj.goto.system;
-        graph.get(system.nickname)!.add(targetSystem);
+        // Don't add edges to excluded systems
+        if (!excludedSystems.includes(targetSystem)) {
+          graph.get(system.nickname)!.add(targetSystem);
+        }
       }
     }
 
