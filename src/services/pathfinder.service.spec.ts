@@ -1063,5 +1063,60 @@ describe("PathfinderService", () => {
         },
       ]);
     });
+
+    it("should find a path through jumpholes if faction excluded", () => {
+      const result = pathfinder.findPath(
+        {
+          position: [0, 0, 0],
+          system: "system_1",
+        },
+        {
+          position: [50, 10, 0],
+          system: "system_2",
+        },
+        {
+          excludedFactions: ["li_n_grp"],
+        }
+      );
+
+      expect(result).toEqual([
+        {
+          type: "cruise",
+          from: { position: [0, 0, 0], system: "system_1" },
+          to: {
+            position: [40, 0, 0],
+            faction: undefined,
+            system: "system_1",
+            object: "jumphole_1_2",
+          },
+          duration: 40 / pathfinder.cruiseSpeed,
+        },
+        {
+          type: "jump",
+          from: {
+            position: [40, 0, 0],
+            faction: undefined,
+            system: "system_1",
+            object: "jumphole_1_2",
+          },
+          to: {
+            position: [0, 50, 0],
+            system: "system_2",
+            object: "jumphole_2_1",
+          },
+          duration: 0,
+        },
+        {
+          type: "cruise",
+          from: {
+            position: [0, 50, 0],
+            system: "system_2",
+            object: "jumphole_2_1",
+          },
+          to: { position: [50, 10, 0], system: "system_2" },
+          duration: Math.sqrt(50 ** 2 + 40 ** 2) / pathfinder.cruiseSpeed,
+        },
+      ]);
+    });
   });
 });

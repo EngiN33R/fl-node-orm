@@ -32,7 +32,8 @@ export class PathfinderService {
   findPotentialJumps(
     fromSystem: string,
     toSystem: string,
-    flags: Flag[] = []
+    flags: Flag[] = [],
+    excludedFactions: string[] = []
   ): NavigationWaypoint[] {
     const sources = this.ctx
       .entity("object")
@@ -54,6 +55,14 @@ export class PathfinderService {
         if (
           flags.includes("NO_JUMPHOLE") &&
           destination.archetype.includes("jumphole")
+        ) {
+          continue;
+        }
+        // Skip if source or destination has an excluded faction
+        if (
+          (source.faction && excludedFactions.includes(source.faction)) ||
+          (destination.faction &&
+            excludedFactions.includes(destination.faction))
         ) {
           continue;
         }
@@ -113,8 +122,10 @@ export class PathfinderService {
    *
    * @param from Origin location
    * @param to Destination location
-   * @param flags Optional flags to control pathfinding behavior
-   * @param excludedSystems Optional list of system nicknames to exclude from paths
+   * @param options Optional configuration object
+   * @param options.flags Optional flags to control pathfinding behavior
+   * @param options.excludedSystems Optional list of system nicknames to exclude from paths
+   * @param options.excludedFactions Optional list of faction nicknames to exclude (applies to jumpgates, jumpholes, and tradelanes)
    * @returns
    */
   findPath(
@@ -123,6 +134,7 @@ export class PathfinderService {
     options: {
       flags?: Flag[];
       excludedSystems?: string[];
+      excludedFactions?: string[];
     } = {}
   ): NavigationWaypoint[] {
     if (from.system === to.system) {
@@ -138,6 +150,7 @@ export class PathfinderService {
     options: {
       flags?: Flag[];
       excludedSystems?: string[];
+      excludedFactions?: string[];
     } = {}
   ): NavigationWaypoint[] {
     const useTradelanes = !options.flags?.includes("NO_TRADELANE");
@@ -155,7 +168,7 @@ export class PathfinderService {
     }
 
     // Try to find a path using tradelanes
-    const tradelanePath = this.findPathWithTradelanes(from, to);
+    const tradelanePath = this.findPathWithTradelanes(from, to, options);
     if (tradelanePath.length > 0) {
       return tradelanePath;
     }
@@ -174,8 +187,14 @@ export class PathfinderService {
 
   private findPathWithTradelanes(
     from: NavigationLocation,
-    to: NavigationLocation
+    to: NavigationLocation,
+    options: {
+      flags?: Flag[];
+      excludedSystems?: string[];
+      excludedFactions?: string[];
+    } = {}
   ): NavigationWaypoint[] {
+    const { excludedFactions = [] } = options;
     const system = this.ctx.findByNickname("system", from.system) as
       | ISystem
       | undefined;
@@ -186,8 +205,16 @@ export class PathfinderService {
     const tradelaneRings =
       this.ctx
         .findByNickname("system", from.system)
-        ?.tradelanes.flatMap((tl) =>
-          tl.rings.map((ring) => ({ ...ring, tradelane: tl }))
+        ?.tradelanes.filter(
+          (tl) => !tl.faction || !excludedFactions.includes(tl.faction)
+        )
+        .flatMap((tl) =>
+          tl.rings
+            .filter(
+              (ring) =>
+                !ring.faction || !excludedFactions.includes(ring.faction)
+            )
+            .map((ring) => ({ ...ring, tradelane: tl }))
         ) ?? [];
 
     if (tradelaneRings.length === 0 || system.tradelanes.length === 0) {
@@ -250,12 +277,23 @@ export class PathfinderService {
     }
 
     // Add tradelane edges between connected rings in the same tradelane
-    for (const tl of system.tradelanes) {
+    // Filter tradelanes by excluded factions
+    const filteredTradelanes = system.tradelanes.filter(
+      (tl) => !tl.faction || !excludedFactions.includes(tl.faction)
+    );
+    for (const tl of filteredTradelanes) {
       for (let i = 0; i < tl.rings.length; i++) {
         const ring = tl.rings[i];
+        // Skip rings with excluded factions
+        if (ring.faction && excludedFactions.includes(ring.faction)) {
+          continue;
+        }
         if (ring.nextRing) {
           const nextRing = tl.rings.find((r) => r.nickname === ring.nextRing);
-          if (nextRing) {
+          if (
+            nextRing &&
+            (!nextRing.faction || !excludedFactions.includes(nextRing.faction))
+          ) {
             const dist = this.distance(ring.position, nextRing.position);
             const time = this.travelTime(dist, this.tradelaneSpeed);
             edges.push({
@@ -270,7 +308,10 @@ export class PathfinderService {
         }
         if (ring.prevRing) {
           const prevRing = tl.rings.find((r) => r.nickname === ring.prevRing);
-          if (prevRing) {
+          if (
+            prevRing &&
+            (!prevRing.faction || !excludedFactions.includes(prevRing.faction))
+          ) {
             const dist = this.distance(ring.position, prevRing.position);
             const time = this.travelTime(dist, this.tradelaneSpeed);
             edges.push({
@@ -688,9 +729,10 @@ export class PathfinderService {
     options: {
       flags?: Flag[];
       excludedSystems?: string[];
+      excludedFactions?: string[];
     } = {}
   ): NavigationWaypoint[] {
-    const { flags = [] } = options;
+    const { flags = [], excludedFactions = [] } = options;
 
     // Find the shortest path through systems using BFS
     const systemPath = this.findSystemPath(from.system, to.system, options);
@@ -711,7 +753,8 @@ export class PathfinderService {
       const potentialJumps = this.findPotentialJumps(
         currentSystem,
         nextSystem,
-        flags
+        flags,
+        excludedFactions
       );
 
       if (potentialJumps.length === 0) {
@@ -789,9 +832,10 @@ export class PathfinderService {
     options: {
       flags?: Flag[];
       excludedSystems?: string[];
+      excludedFactions?: string[];
     } = {}
   ): string[] {
-    const { flags = [], excludedSystems = [] } = options;
+    const { flags = [], excludedSystems = [], excludedFactions = [] } = options;
 
     // If same system, return empty (handled by caller)
     if (fromSystem === toSystem) {
@@ -807,13 +851,22 @@ export class PathfinderService {
     }
 
     // Check for direct connection first
-    const directJumps = this.findPotentialJumps(fromSystem, toSystem, flags);
+    const directJumps = this.findPotentialJumps(
+      fromSystem,
+      toSystem,
+      flags,
+      excludedFactions
+    );
     if (directJumps.length > 0) {
       return [fromSystem, toSystem];
     }
 
     // Build a graph of system connections
-    const systemGraph = this.buildSystemGraph(flags, excludedSystems);
+    const systemGraph = this.buildSystemGraph(
+      flags,
+      excludedSystems,
+      excludedFactions
+    );
 
     // Use BFS to find shortest path
     const queue: Array<{ system: string; path: string[] }> = [
@@ -847,7 +900,8 @@ export class PathfinderService {
 
   private buildSystemGraph(
     flags: Flag[],
-    excludedSystems: string[] = []
+    excludedSystems: string[] = [],
+    excludedFactions: string[] = []
   ): Map<string, string[]> {
     const graph = new Map<string, Set<string>>();
 
@@ -880,6 +934,11 @@ export class PathfinderService {
           flags.includes("NO_JUMPHOLE") &&
           obj.archetype.includes("jumphole")
         ) {
+          continue;
+        }
+
+        // Skip if object has an excluded faction
+        if (obj.faction && excludedFactions.includes(obj.faction)) {
           continue;
         }
 
