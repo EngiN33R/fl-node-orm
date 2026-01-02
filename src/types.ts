@@ -428,7 +428,9 @@ export interface IMarketQuerier {
 
 export type ProcurementSource =
   | "market"
+  | "ship_package"
   | "npc_loot"
+  | "phantom_loot"
   | "wreck_loot"
   | "crafting"
   | "lootbox"
@@ -444,9 +446,22 @@ export type ProcurementDetails =
       price: number;
     }
   | {
+      type: "ship_package";
+      ship: string;
+    }
+  | {
       type: "npc_loot";
       loadout: string;
       faction: string;
+      chance: number;
+    }
+  | {
+      type: "phantom_loot";
+      chance: number;
+      min: number;
+      max: number;
+      minToughness: number;
+      maxToughness: number;
     }
   | {
       type: "wreck_loot";

@@ -147,6 +147,7 @@ export class DataContext implements IDataContext {
     // Load hardcoded INIs
     await this.parseIni("MISSIONS/mbases.ini", "mbases");
     await this.parseIni("MISSIONS/npcships.ini", "npcships");
+    await this.parseIni("MISSIONS/lootprops.ini", "lootprops");
     await this.parseIni("INTERFACE/knowledgemap.ini", "knowledgemap");
     await this.parseIni("RANDOMMISSIONS/diff2money.ini", "diff2money");
 

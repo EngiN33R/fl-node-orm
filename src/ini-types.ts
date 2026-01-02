@@ -599,12 +599,33 @@ export type IniNpcShip = {
   loadout: string;
   level: `d${number}`;
   ship_archetype: string;
+  pilot: string;
+  npc_class: string[];
 };
 
 export type IniLoadout = {
   nickname: string;
   equip: Array<[equipment: string, hardpoint?: string]>;
   cargo?: Array<[cargo: string, count: number]>;
+};
+
+export type IniLootProps = {
+  nickname: string;
+  drop_properties: [
+    chance: number,
+    minWorth: number,
+    worthMult: number,
+    minCount: number,
+    maxCount1: number,
+    maxCount2: number,
+  ];
+};
+
+export type IniPhantomLootProps = {
+  nickname: string;
+  toughness_range: [number, number];
+  percent_chance: number;
+  num_to_drop: [number, number];
 };
 
 export type IniCraftingRecipe = {

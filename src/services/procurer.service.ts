@@ -1,4 +1,10 @@
-import { IniLoadout } from "../ini-types";
+import {
+  IniLoadout,
+  IniLootProps,
+  IniPhantomLootProps,
+  IniShipGood,
+  IniShipHullGood,
+} from "../ini-types";
 import {
   IDataContext,
   IProcurementQuerier,
@@ -45,8 +51,35 @@ export class ProcurerService implements IProcurementQuerier {
       });
     }
 
+    // Find ship packages that contain the equipment
+    const shipGoods =
+      this.#ctx
+        .ini<{ good: IniShipGood }>("goods")
+        ?.findAll(
+          "good",
+          (g) =>
+            g.get("category") === "ship" &&
+            g.asArray("addon", true).some((addon) => addon[0] === nickname)
+        ) ?? [];
+    for (const shipGood of shipGoods) {
+      const shiphullGood = this.#ctx
+        .ini<{ good: IniShipHullGood }>("goods")
+        ?.findByNickname("good", shipGood.get("hull"));
+      if (!shiphullGood) {
+        continue;
+      }
+      const ship = shiphullGood.get("ship");
+      results.push({
+        type: "ship_package",
+        ship,
+      });
+    }
+
     // Find NPC loadouts that contain the equipment
     if (equipment.lootable) {
+      const lootProps = this.#ctx
+        .ini<{ mlootprops: IniLootProps }>("lootprops")
+        ?.findByNickname("mlootprops", nickname);
       const npcLoadouts = this.#ctx
         .entity("npc")
         .findAll(
@@ -59,8 +92,22 @@ export class ProcurerService implements IProcurementQuerier {
           type: "npc_loot",
           loadout: npcLoadouts[0].nickname,
           faction: npcLoadouts[0].faction!,
+          chance: lootProps?.get("drop_properties")?.[0] ?? 0,
         });
       }
+    }
+    const phantomLootProps = this.#ctx
+      .ini<{ phantomloot: IniPhantomLootProps }>("lootprops")
+      ?.findByNickname("phantomloot", nickname);
+    if (phantomLootProps) {
+      results.push({
+        type: "phantom_loot",
+        chance: phantomLootProps.get("percent_chance") ?? 0,
+        min: phantomLootProps.get("num_to_drop")?.[0] ?? 0,
+        max: phantomLootProps.get("num_to_drop")?.[1] ?? 0,
+        minToughness: phantomLootProps.get("toughness_range")?.[0] ?? 0,
+        maxToughness: phantomLootProps.get("toughness_range")?.[1] ?? 0,
+      });
     }
 
     // Find wrecks that contain the equipment
