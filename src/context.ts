@@ -11,12 +11,16 @@ import {
 } from "./types";
 import { parseFile, parseIni } from "./util/ini";
 import { ResourceDll } from "./util/resourcedll";
-import { IniSectionModel, IniSectionsModel } from "./models/ini-section.model";
+import { IniSectionsModel } from "./models/ini-section.model";
 import { SystemModel } from "./models/system.model";
 import { FactionModel } from "./models/faction.model";
 import { parseUtf, UtfTree } from "./util/utf";
-import { parseSystemRange, parseTerritorySections } from "./util/data";
-import { EquipmentModel, PARSED_SECTION_KEYS } from "./models/equipment.model";
+import { parseTerritorySections } from "./util/data";
+import {
+  EquipmentModel,
+  EquipmentSection,
+  PARSED_SECTION_KEYS,
+} from "./models/equipment.model";
 import {
   IniBaseGood,
   IniConfigShape,
@@ -199,6 +203,10 @@ export class DataContext implements IDataContext {
     const marketsPaths = cfg?.findFirst("data")?.asArray("markets") ?? [];
     const loadoutsPaths = cfg?.findFirst("data")?.asArray("loadouts") ?? [];
     const solarsPaths = cfg?.findFirst("data")?.asArray("solar") ?? [];
+    const weaponModPaths = cfg?.findFirst("data")?.asArray("weaponmoddb") ?? [];
+    for (const path of weaponModPaths) {
+      await this.safeParseIni(path, "weaponmoddb");
+    }
     for (const path of equipmentPaths) {
       await this.safeParseIni(path, "equipment");
     }
@@ -217,14 +225,23 @@ export class DataContext implements IDataContext {
     for (const path of solarsPaths) {
       await this.safeParseIni(path, "solars");
     }
-    const ships = this.ini<{ ship: IniShiparch }>("ships");
 
-    await EquipmentModel.fromAll(this);
+    const equipment = this.ini<IniEquipmentShape>("equipment");
+    for (const def of equipment?.sections.filter((s) =>
+      PARSED_SECTION_KEYS.includes(
+        s.name as (typeof PARSED_SECTION_KEYS)[number]
+      )
+    ) ?? []) {
+      await EquipmentModel.from(this, { def: def as EquipmentSection });
+    }
+
+    const ships = this.ini<{ ship: IniShiparch }>("ships");
     for (const arch of ships?.findAll("ship") ?? []) {
       await ShipModel.from(this, {
         arch,
       });
     }
+
     for (const basegood of this.ini<{ basegood: IniBaseGood }>(
       "markets"
     )?.findAll("basegood") ?? []) {
@@ -300,7 +317,6 @@ export class DataContext implements IDataContext {
       );
       for (const [key, value] of dll.strings.entries()) {
         this.supplementaryStrings.set(`engclass.dll_${key}`, value);
-        console.log(key, value);
       }
       for (const [key, value] of dll.infocards.entries()) {
         this.supplementaryInfocards.set(`engclass.dll_${key}`, value);
@@ -575,7 +591,7 @@ export class DataContext implements IDataContext {
         );
         return this.supplementaryIds(56 + level - 1, "engclass.dll");
       }
-      switch (nickname) {
+      switch (nickname.toLowerCase()) {
         case "hp_thruster":
           return this.ids(1520);
         case "hp_mine_dropper":
@@ -590,6 +606,68 @@ export class DataContext implements IDataContext {
           return this.ids(1742);
       }
     }
+
+    switch (nickname.toLowerCase()) {
+      case "w_laser":
+      case "w_laser01":
+      case "w_laser02":
+      case "w_laser03":
+        return "Laser";
+      case "w_plasma":
+      case "w_plasma01":
+      case "w_plasma02":
+      case "w_plasma03":
+        return "Plasma";
+      case "w_tachyon":
+      case "w_tachyon01":
+      case "w_tachyon02":
+      case "w_tachyon03":
+        return "Tachyon";
+      case "w_neutron":
+      case "w_neutron01":
+      case "w_neutron02":
+      case "w_neutron03":
+        return "Neutron";
+      case "w_particle":
+      case "w_particle01":
+      case "w_particle02":
+      case "w_particle03":
+        return "Particle";
+      case "w_photon":
+      case "w_photon01":
+      case "w_photon02":
+      case "w_photon03":
+        return "Photon";
+      case "w_pulse":
+      case "w_pulse01":
+      case "w_pulse02":
+      case "w_pulse03":
+        return "Pulse";
+      case "w_noclass":
+      case "w_solar":
+        return "Direct";
+      case "w_nomad":
+        return "Nomad";
+      case "w_gas":
+        return "Gas";
+      case "w_mineral":
+        return "Mineral";
+      case "s_molecular":
+        return "Molecular";
+      case "s_graviton":
+        return "Graviton";
+      case "s_positron":
+        return "Positron";
+      case "s_neutrino":
+        return "Neutrino";
+      case "s_solar":
+        return "Generic";
+      case "s_gas":
+        return "Gas";
+      case "s_mineral":
+        return "Mineral";
+    }
+
     return nickname;
   }
 

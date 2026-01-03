@@ -19,10 +19,11 @@ import {
   IniEquipmentThruster,
   IniEquipmentTractor,
   IniShipHullGood,
+  IniWeaponModDbType,
 } from "../ini-types";
 import { IDataContext, IEquipment, IGood, IIniSection } from "../types";
 
-type Source =
+export type EquipmentSection =
   | IIniSection<IniEquipmentGun, "gun">
   | IIniSection<IniEquipmentMunition, "munition">
   | IIniSection<IniEquipmentCMDropper, "countermeasuredropper">
@@ -193,10 +194,13 @@ export class EquipmentModel implements IEquipment {
     {
       def,
     }: {
-      def: Source;
+      def: EquipmentSection;
     }
   ) {
     const values = def.ini[1];
+
+    const moddb = ctx.ini<{ weapontype: IniWeaponModDbType }>("weaponmoddb");
+    const weaponMod = moddb?.findAll("weapontype");
 
     const equipment = ctx.ini<IniEquipmentShape>("equipment");
     const goods = ctx.ini<{ good: IniEquipmentGood }>("goods");
@@ -272,13 +276,20 @@ export class EquipmentModel implements IEquipment {
             (munition!.get("max_angular_velocity")! * 180) / Math.PI,
         };
       } else {
+        const damageType = munition!.get("weapon_type")!;
+        const multipliers = Object.fromEntries(
+          weaponMod
+            ?.find((s) => s.get("nickname") === damageType)
+            ?.asArray("shield_mod", true) ?? []
+        );
         model[model.kind] = {
           powerUsage: gun.power_usage,
           hullDamage: munition!.get("hull_damage")!,
           shieldDamage:
             munition!.get("energy_damage") || munition!.get("hull_damage")! / 2,
           refireRate: gun.refire_delay,
-          damageType: munition!.get("weapon_type")!,
+          damageType,
+          multipliers,
           range: munition!.get("lifetime") * 600,
           speed: gun.muzzle_velocity,
           turnRate: gun.turn_rate,
@@ -310,9 +321,15 @@ export class EquipmentModel implements IEquipment {
       const engine = def.ini[1];
       model.hardpoint = engine.hp_type;
       model.kind = "engine";
+      const multiplier = 600 / engine.linear_drag;
       model.engine = {
+        speed: (engine.max_force / 600) * multiplier,
         maxForce: engine.max_force,
+        linearDrag: engine.linear_drag,
+        reverseSpeed:
+          (engine.max_force / 600) * engine.reverse_fraction * multiplier,
         cruiseSpeed: engine.cruise_speed,
+        thrusterMult: multiplier,
       };
     } else if (def.ini[0] === "armor") {
       const armor = def.ini[1];
@@ -341,10 +358,32 @@ export class EquipmentModel implements IEquipment {
       };
     } else if (def.ini[0] === "shieldgenerator") {
       const shield = def.ini[1];
+      const shieldType = shield.shield_type;
+      const resistances = Object.fromEntries(
+        weaponMod
+          ?.flatMap((s) =>
+            s
+              .asArray("shield_mod", true)
+              .map(
+                ([shieldType, multiplier]) =>
+                  [s.get("nickname"), shieldType, multiplier] as [
+                    weaponType: string,
+                    shieldType: string,
+                    multiplier: number,
+                  ]
+              )
+          )
+          .filter(([, type]) => type === shieldType)
+          .map(
+            ([weaponType, , multiplier]) =>
+              [weaponType, multiplier] as [string, number]
+          ) ?? []
+      );
       model.hardpoint = shield.hp_type;
       model.kind = "shield";
       model.shield = {
-        type: shield.shield_type,
+        type: shieldType,
+        resistances,
         capacity: shield.max_capacity,
         regeneration: shield.regeneration_rate,
         rebuildTime: shield.offline_rebuild_time,
@@ -356,6 +395,7 @@ export class EquipmentModel implements IEquipment {
       model.hardpoint = "hp_thruster";
       model.kind = "thruster";
       model.thruster = {
+        maxForce: thruster.max_force,
         speed: thruster.max_force / 600,
         powerUsage: thruster.power_usage,
       };

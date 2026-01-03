@@ -75,6 +75,14 @@ describe("DataContext", () => {
       //     return `${ids}: ${ctx.ids(ids)}`;
       //   })
       // );
+      console.log(
+        DataContext.INSTANCE.findIdsFuzzy("pulse")
+          .map((id) => `${id}: ${ctx.ids(id)}`)
+          .filter((s) => !s.includes("<RDL>"))
+      );
+      // console.log(
+      //   DataContext.INSTANCE.procurer.getProcurementDetails("no2_gun_medium02")
+      // );
     });
   });
 });

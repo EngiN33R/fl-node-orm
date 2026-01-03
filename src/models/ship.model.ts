@@ -61,6 +61,14 @@ export class ShipModel implements IShip {
   public icon!: string;
   public stats!: string;
   public class!: string;
+  public mass!: number;
+  public linearDrag!: number;
+  public angularDrag!: [number, number, number];
+  public rotationInertia!: [number, number, number];
+  public steeringTorque!: [number, number, number];
+  public nudgeForce!: number;
+  public strafeForce!: number;
+  public strafePowerUsage!: number;
   public hitPoints!: number;
   public maxNanobots!: number;
   public maxBatteries!: number;
@@ -105,6 +113,24 @@ export class ShipModel implements IShip {
 
     model.stats = arch.ids_info ? ctx.ids(arch.ids_info) : model.stats;
     model.class = arch.ship_class ? getClass(arch) : model.class;
+    model.mass = arch.mass ? arch.mass : model.mass;
+    model.linearDrag = arch.linear_drag ? arch.linear_drag : model.linearDrag;
+    model.angularDrag = arch.angular_drag
+      ? arch.angular_drag
+      : model.angularDrag;
+    model.rotationInertia = arch.rotation_inertia
+      ? arch.rotation_inertia
+      : model.rotationInertia;
+    model.steeringTorque = arch.steering_torque
+      ? arch.steering_torque
+      : model.steeringTorque;
+    model.nudgeForce = arch.nudge_force ? arch.nudge_force : model.nudgeForce;
+    model.strafeForce = arch.strafe_force
+      ? arch.strafe_force
+      : model.strafeForce;
+    model.strafePowerUsage = arch.strafe_power_usage
+      ? arch.strafe_power_usage
+      : model.strafePowerUsage;
     model.hitPoints = arch.hit_pts ? arch.hit_pts : model.hitPoints;
     model.maxBatteries = arch.shield_battery_limit
       ? arch.shield_battery_limit

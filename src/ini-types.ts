@@ -16,6 +16,7 @@ export type IniConfigShape = {
     goods: string[];
     markets: string[];
     loadouts: string[];
+    weaponmoddb: string[];
   };
 };
 
@@ -638,4 +639,9 @@ export type IniCraftingRecipe = {
 export type IniLootBox = {
   box_nickname: string;
   loot_item: Array<[good: string, weight: number]>;
+};
+
+export type IniWeaponModDbType = {
+  nickname: string;
+  shield_mod: Array<[shield_type: string, multiplier: number]>;
 };

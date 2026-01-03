@@ -154,6 +154,14 @@ export interface IShip extends Model<"ship"> {
 
   stats: string;
   class: string;
+  mass: number;
+  linearDrag: number;
+  angularDrag: [number, number, number];
+  rotationInertia: [number, number, number];
+  steeringTorque: [number, number, number];
+  nudgeForce: number;
+  strafeForce: number;
+  strafePowerUsage: number;
   hitPoints: number;
   maxNanobots: number;
   maxBatteries: number;
@@ -199,6 +207,9 @@ export interface IEquipment extends Model<"equipment"> {
 
   gun?: {
     damageType: string;
+    multipliers: {
+      [shieldType: string]: number;
+    };
     powerUsage: number;
     hullDamage: number;
     shieldDamage: number;
@@ -209,6 +220,9 @@ export interface IEquipment extends Model<"equipment"> {
   };
   turret?: {
     damageType: string;
+    multipliers: {
+      [shieldType: string]: number;
+    };
     powerUsage: number;
     hullDamage: number;
     shieldDamage: number;
@@ -251,6 +265,9 @@ export interface IEquipment extends Model<"equipment"> {
     rebuildTime: number;
     constantPowerUsage: number;
     rebuildPowerUsage: number;
+    resistances: {
+      [weaponType: string]: number;
+    };
   };
   power?: {
     capacity: number;
@@ -261,8 +278,13 @@ export interface IEquipment extends Model<"equipment"> {
   engine?: {
     cruiseSpeed: number;
     maxForce: number;
+    linearDrag: number;
+    speed: number;
+    reverseSpeed: number;
+    thrusterMult: number;
   };
   thruster?: {
+    maxForce: number;
     speed: number;
     powerUsage: number;
   };

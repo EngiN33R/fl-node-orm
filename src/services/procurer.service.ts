@@ -69,10 +69,12 @@ export class ProcurerService implements IProcurementQuerier {
         continue;
       }
       const ship = shiphullGood.get("ship");
-      results.push({
-        type: "ship_package",
-        ship,
-      });
+      if (!!this.#ctx.market.getSoldAt(ship)?.length) {
+        results.push({
+          type: "ship_package",
+          ship,
+        });
+      }
     }
 
     // Find NPC loadouts that contain the equipment
@@ -84,7 +86,8 @@ export class ProcurerService implements IProcurementQuerier {
         .entity("npc")
         .findAll(
           (n) =>
-            n.equipment.some((e) => e.equipment === nickname) &&
+            (n.equipment.some((e) => e.equipment === nickname) ||
+              n.cargo.some((e) => e.equipment === nickname)) &&
             n.faction !== undefined
         );
       if (npcLoadouts.length > 0) {
@@ -92,7 +95,7 @@ export class ProcurerService implements IProcurementQuerier {
           type: "npc_loot",
           loadout: npcLoadouts[0].nickname,
           faction: npcLoadouts[0].faction!,
-          chance: lootProps?.get("drop_properties")?.[0] ?? 0,
+          chance: (lootProps?.get("drop_properties")?.[0] ?? 0) / 100,
         });
       }
     }
@@ -102,7 +105,7 @@ export class ProcurerService implements IProcurementQuerier {
     if (phantomLootProps) {
       results.push({
         type: "phantom_loot",
-        chance: phantomLootProps.get("percent_chance") ?? 0,
+        chance: (phantomLootProps.get("percent_chance") ?? 0) / 100,
         min: phantomLootProps.get("num_to_drop")?.[0] ?? 0,
         max: phantomLootProps.get("num_to_drop")?.[1] ?? 0,
         minToughness: phantomLootProps.get("toughness_range")?.[0] ?? 0,
