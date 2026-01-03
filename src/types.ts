@@ -542,6 +542,13 @@ export interface IDataContext {
    */
   idsWithRelated(key: number): [string] | [string, string];
   /**
+   * Get supplementary IDS string for key. Used for supplementary DLLs with
+   * included resource strings, such as certain mod DLLs (e.g. engclass.dll).
+   * @param key IDS key.
+   * @param dll DLL name.
+   */
+  supplementaryIds(key: number, dll: string): string;
+  /**
    * Get model for raw INI file.
    * @param handle INI file handle or path relative to instance root.
    */

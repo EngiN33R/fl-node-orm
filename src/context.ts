@@ -75,6 +75,8 @@ export class DataContext implements IDataContext {
 
   private strings: Map<number, string> = new Map();
   private infocards: Map<number, string> = new Map();
+  private supplementaryStrings: Map<string, string> = new Map();
+  private supplementaryInfocards: Map<string, string> = new Map();
 
   private inis: Map<string, IniSectionsModel> = new Map();
   private utfs: Map<string, UtfTree> = new Map();
@@ -292,17 +294,16 @@ export class DataContext implements IDataContext {
     }
 
     // FLSR: Try loading engclass.dll
-    const engclassStrings = new Map<number, string>();
-    const engclassInfocards = new Map<number, string>();
     try {
       const dll = await ResourceDll.fromFile(
         path.join(instancePath, "EXE", "engclass.dll")
       );
       for (const [key, value] of dll.strings.entries()) {
-        engclassStrings.set(key, value);
+        this.supplementaryStrings.set(`engclass.dll_${key}`, value);
+        console.log(key, value);
       }
       for (const [key, value] of dll.infocards.entries()) {
-        engclassInfocards.set(key, value);
+        this.supplementaryInfocards.set(`engclass.dll_${key}`, value);
       }
     } catch (e) {
       console.warn(`Failed to load resource engclass.dll: ${e}`);
@@ -430,6 +431,14 @@ export class DataContext implements IDataContext {
     );
   }
 
+  supplementaryIds(key: number, dll: string) {
+    return (
+      this.supplementaryStrings.get(`${dll}_${key}`) ??
+      this.supplementaryInfocards.get(`${dll}_${key}`) ??
+      `IDS#${dll}#${key}`
+    );
+  }
+
   findIds(target: string) {
     for (const [key, value] of this.strings.entries()) {
       if (value === target) {
@@ -535,6 +544,36 @@ export class DataContext implements IDataContext {
       if (nickname.startsWith("hp_turret_special_")) {
         const level = Number(nickname.replace("hp_turret_special_", ""));
         return this.ids(1731 + level - 1, nickname);
+      }
+      if (nickname.startsWith("hp_fighter_power_special_")) {
+        const level = Number(nickname.replace("hp_fighter_power_special_", ""));
+        return this.supplementaryIds(6 + level - 1, "engclass.dll");
+      }
+      if (nickname.startsWith("hp_elite_power_special_")) {
+        const level = Number(nickname.replace("hp_elite_power_special_", ""));
+        return this.supplementaryIds(16 + level - 1, "engclass.dll");
+      }
+      if (nickname.startsWith("hp_freighter_power_special_")) {
+        const level = Number(
+          nickname.replace("hp_freighter_power_special_", "")
+        );
+        return this.supplementaryIds(26 + level - 1, "engclass.dll");
+      }
+      if (nickname.startsWith("hp_fighter_engine_special_")) {
+        const level = Number(
+          nickname.replace("hp_fighter_engine_special_", "")
+        );
+        return this.supplementaryIds(36 + level - 1, "engclass.dll");
+      }
+      if (nickname.startsWith("hp_elite_engine_special_")) {
+        const level = Number(nickname.replace("hp_elite_engine_special_", ""));
+        return this.supplementaryIds(46 + level - 1, "engclass.dll");
+      }
+      if (nickname.startsWith("hp_freighter_engine_special_")) {
+        const level = Number(
+          nickname.replace("hp_freighter_engine_special_", "")
+        );
+        return this.supplementaryIds(56 + level - 1, "engclass.dll");
       }
       switch (nickname) {
         case "hp_thruster":
