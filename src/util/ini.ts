@@ -3,6 +3,7 @@
 import * as fs from "fs/promises";
 import * as util from "util";
 import * as bini from "./bini";
+import { resolveFilePath } from "./filepath";
 
 // Constants
 const DELIMITER_KEY_VALUE = "=";
@@ -123,11 +124,12 @@ export async function group(
  * of entry/value pairs.
  */
 export async function parseFile(path: string): Promise<ParsedSection[]> {
-  if (bini.isBini(path)) {
-    return bini.parseFile(path);
+  const resolvedPath = await resolveFilePath(path);
+  if (bini.isBini(resolvedPath)) {
+    return bini.parseFile(resolvedPath);
   }
 
-  const contents = await fs.readFile(path, { encoding: "latin1" }); // files are case insensitive
+  const contents = await fs.readFile(resolvedPath, { encoding: "latin1" }); // files are case insensitive
   const cleanedContents = contents
     .toLowerCase()
     .replace(DELIMITER_COMMENT + SECTION_NAME_START, "") // delete commented section markers

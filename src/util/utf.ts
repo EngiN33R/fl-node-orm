@@ -1,6 +1,7 @@
 // Adapted from original flint code by biqqles
 
 import * as fs from "fs/promises";
+import { resolveFilePath } from "./filepath";
 
 const UTF_HEADER_FIELDS = {
   Signature: "uint32",
@@ -161,7 +162,8 @@ const TYPE_DATA = 0x10;
 
 // Generator function to parse the file
 export async function parseUtf(path: string): Promise<UtfTree> {
-  const fileHandle = await fs.open(path, "r");
+  const resolvedPath = await resolveFilePath(path);
+  const fileHandle = await fs.open(resolvedPath, "r");
   const root = new UtfTree("\\");
   try {
     const headerBuffer = new ArrayBuffer(56);

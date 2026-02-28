@@ -1,5 +1,6 @@
 // Translated from original LibreLancer C# code by Callum McGing
 import * as fs from "fs/promises";
+import { resolveFilePath } from "./filepath";
 
 // Constants
 const RT_RCDATA = 23;
@@ -91,7 +92,8 @@ export class ResourceDll {
       throw new Error("Path cannot be null or undefined");
     }
 
-    const fileData = await fs.readFile(filePath);
+    const resolvedPath = await resolveFilePath(filePath);
+    const fileData = await fs.readFile(resolvedPath);
     const arrayBuffer = new Uint8Array(fileData).buffer;
     return ResourceDll.fromArrayBuffer(arrayBuffer);
   }

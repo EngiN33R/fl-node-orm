@@ -1,6 +1,7 @@
 // Adapted from original flint code by biqqles
 
 import * as fs from "fs";
+import { resolveFilePathSync } from "./filepath";
 
 // Types
 type ValueType = 1 | 2 | 3; // integer, float, string pointer
@@ -108,6 +109,7 @@ export function parseFile(
   lower = true
 ): Section[] {
   // Read the file into an ArrayBuffer
+  filePath = resolveFilePathSync(filePath);
   const fileBuffer = fs.readFileSync(filePath);
   const arrayBuffer = fileBuffer.buffer.slice(
     fileBuffer.byteOffset,
@@ -227,6 +229,7 @@ export function dump(filePath: string): string {
  */
 export function isBini(filePath: string): boolean {
   try {
+    filePath = resolveFilePathSync(filePath);
     if (!fs.existsSync(filePath)) {
       return false;
     }
