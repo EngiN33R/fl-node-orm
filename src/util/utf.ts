@@ -65,7 +65,7 @@ export class UtfTree {
     let current: UtfTree = this;
     for (const part of parts) {
       if (!current.children[part]) {
-        current.children[part] = new UtfTree(path, current);
+        current.children[part] = new UtfTree(part, current);
       }
       current = current.children[part];
     }
@@ -157,8 +157,48 @@ function readStruct<K extends string>(
 }
 
 // Constants
-const TYPE_CHILD = 0x80; // utf tree types
-const TYPE_DATA = 0x10;
+const TYPE_LEAF = 0x80; // leaf node (has data)
+const TYPE_INTERMEDIATE = 0x10; // intermediate node (has children)
+
+const ENTRY_SIZE = 44; // bytes per node entry
+
+function parseNodeAtOffset(
+  nodeBlock: DataView,
+  dataBlock: ArrayBuffer,
+  names: Record<number, string>,
+  offset: number,
+  parent?: UtfTree
+): UtfTree {
+  const nameOffset = nodeBlock.getUint32(offset + 4, true);
+  const entryType = nodeBlock.getUint32(offset + 8, true);
+  const childOrDataOffset = nodeBlock.getUint32(offset + 16, true);
+  const usedDataSize = nodeBlock.getUint32(offset + 24, true);
+
+  const name = names[nameOffset];
+  const node = new UtfTree(name, parent);
+
+  if (entryType & TYPE_INTERMEDIATE) {
+    // Intermediate node: childOrDataOffset points to first child in node block
+    let childOffset = childOrDataOffset;
+    while (childOffset !== 0) {
+      const child = parseNodeAtOffset(
+        nodeBlock,
+        dataBlock,
+        names,
+        childOffset,
+        node
+      );
+      node.children[child.path] = child;
+      // Read next sibling offset from the child's entry
+      childOffset = nodeBlock.getUint32(childOffset, true);
+    }
+  } else {
+    // Leaf node: childOrDataOffset is offset into data block
+    node.data = dataBlock.slice(childOrDataOffset, childOrDataOffset + usedDataSize);
+  }
+
+  return node;
+}
 
 // Generator function to parse the file
 export async function parseUtf(path: string): Promise<UtfTree> {
@@ -204,40 +244,34 @@ export async function parseUtf(path: string): Promise<UtfTree> {
       position += name.byteLength + 1;
     }
 
-    let current = root;
-    let currentTreeEnd: number = 0;
+    // Read entire node block into memory
+    const nodeBlockSize = entryCount * ENTRY_SIZE;
+    const nodeBlockBuffer = new ArrayBuffer(nodeBlockSize);
+    const nodeBlockView = new DataView(nodeBlockBuffer);
+    await fileHandle.read(nodeBlockView, 0, nodeBlockSize, header.TreeOffset);
 
-    // Read data tree
-    for (let e = 0; e < entryCount; e++) {
-      const entryBuffer = new ArrayBuffer(44);
-      const entryView = new DataView(entryBuffer);
-      await fileHandle.read(entryView, 0, 44, header.TreeOffset + e * 44);
+    // Read entire data block into memory (from DataStartOffset to EOF)
+    const stat = await fileHandle.stat();
+    const dataBlockSize = stat.size - header.DataStartOffset;
+    const dataBlockBuffer = new ArrayBuffer(dataBlockSize);
+    const dataBlockView = new DataView(dataBlockBuffer);
+    await fileHandle.read(dataBlockView, 0, dataBlockSize, header.DataStartOffset);
 
-      const entry = readStruct(entryView, UTF_ENTRY_FIELDS);
+    // Root entry is at offset 0 in node block; its ChildOrDataOffset points to first child
+    const rootChildOffset = nodeBlockView.getUint32(16, true);
 
-      const name = names[entry.DictionaryNameOffset];
-      if (name === "\\") {
-        continue;
-      }
-
-      const dataBuffer = new ArrayBuffer(entry.UsedDataSize);
-      const dataView = new DataView(dataBuffer);
-      await fileHandle.read(
-        dataView,
-        0,
-        entry.UsedDataSize,
-        entry.ChildOrDataOffset + header.DataStartOffset
+    // Iterate root's children via sibling chain
+    let childOffset = rootChildOffset;
+    while (childOffset !== 0) {
+      const child = parseNodeAtOffset(
+        nodeBlockView,
+        dataBlockBuffer,
+        names,
+        childOffset,
+        root
       );
-      const created = current.put(name, dataView.buffer);
-      if (entry.EntryType === 16) {
-        currentTreeEnd = entry.NextSiblingOffset;
-        current = created;
-      } else if (entry.NextSiblingOffset === 0) {
-        current = current.parent!;
-        if (currentTreeEnd === 0) {
-          current = current.parent!;
-        }
-      }
+      root.children[child.path] = child;
+      childOffset = nodeBlockView.getUint32(childOffset, true);
     }
   } finally {
     await fileHandle.close();
@@ -245,4 +279,4 @@ export async function parseUtf(path: string): Promise<UtfTree> {
   }
 }
 
-export { TYPE_CHILD, TYPE_DATA };
+export { TYPE_LEAF, TYPE_INTERMEDIATE };
