@@ -195,7 +195,7 @@ export class EquipmentModel implements IEquipment {
       def,
     }: {
       def: EquipmentSection;
-    }
+    },
   ) {
     const values = def.ini[1];
 
@@ -206,7 +206,7 @@ export class EquipmentModel implements IEquipment {
     const goods = ctx.ini<{ good: IniEquipmentGood }>("goods");
     const good = goods?.findFirst(
       "good",
-      (s) => s.raw.equipment === values.nickname
+      (s) => s.raw.equipment === values.nickname,
     );
 
     const model = new EquipmentModel();
@@ -225,7 +225,7 @@ export class EquipmentModel implements IEquipment {
         const utf = await ctx.loadUtf(model.icon);
         ctx.registerBinary(
           `${model.nickname}_icon`,
-          utf.get("Texture library")?.first()?.first()?.data
+          utf.get("Texture library")?.first()?.first()?.data,
         );
       } catch (e) {
         console.warn(`Failed to load item icon for ${model.nickname}: ${e}`);
@@ -240,18 +240,18 @@ export class EquipmentModel implements IEquipment {
       const gun = def.ini[1];
       const munition = equipment?.findFirst(
         "munition",
-        (s) => s.get("nickname") === gun.projectile_archetype
+        (s) => s.get("nickname") === gun.projectile_archetype,
       );
       if (!munition) {
         return;
       }
       const motor = equipment?.findFirst(
         "motor",
-        (s) => s.get("nickname") === munition.get("motor")
+        (s) => s.get("nickname") === munition.get("motor"),
       );
       const explosion = equipment?.findFirst(
         "explosion",
-        (s) => s.get("nickname") === munition.get("explosion_arch")
+        (s) => s.get("nickname") === munition.get("explosion_arch"),
       );
       model.hardpoint = gun.hp_gun_type;
       if (!model.hardpoint) {
@@ -262,6 +262,28 @@ export class EquipmentModel implements IEquipment {
         : model.hardpoint.includes("turret")
           ? "turret"
           : "gun";
+      let barrelCount = 1;
+      const cmpPath = gun.da_archetype.replace(/\\/g, "/");
+      if (cmpPath) {
+        try {
+          const gunUtf = await ctx.loadUtf(cmpPath);
+          console.log(gunUtf);
+          if (gunUtf) {
+            barrelCount = new Set(
+              gunUtf
+                .listLeaves()
+                .map((l) => l.fullPath.toLowerCase().match(/hpfire\d+/)?.[0])
+                .filter(Boolean),
+            ).size;
+          }
+        } catch (e) {
+          // console.warn(
+          //   `could not find da_archetype of ${gun.nickname} '${gun.da_archetype}'`,
+          // );
+        } finally {
+          barrelCount ||= 1;
+        }
+      }
       if (model.kind === "missile") {
         model[model.kind] = {
           hullDamage: explosion!.get("hull_damage"),
@@ -280,11 +302,12 @@ export class EquipmentModel implements IEquipment {
         const multipliers = Object.fromEntries(
           weaponMod
             ?.find((s) => s.get("nickname") === damageType)
-            ?.asArray("shield_mod", true) ?? []
+            ?.asArray("shield_mod", true) ?? [],
         );
         model[model.kind] = {
           powerUsage: gun.power_usage,
           hullDamage: munition!.get("hull_damage")!,
+          barrelCount,
           shieldDamage:
             munition!.get("energy_damage") || munition!.get("hull_damage")! / 2,
           refireRate: gun.refire_delay,
@@ -299,7 +322,7 @@ export class EquipmentModel implements IEquipment {
       const cm = def.ini[1];
       const countermeasure = equipment?.findFirst(
         "countermeasure",
-        (s) => s.get("nickname") === cm.projectile_archetype
+        (s) => s.get("nickname") === cm.projectile_archetype,
       )!;
       model.hardpoint = "hp_countermeasure_dropper";
       model.kind = "cm";
@@ -370,14 +393,14 @@ export class EquipmentModel implements IEquipment {
                     weaponType: string,
                     shieldType: string,
                     multiplier: number,
-                  ]
-              )
+                  ],
+              ),
           )
           .filter(([, type]) => type === shieldType)
           .map(
             ([weaponType, , multiplier]) =>
-              [weaponType, multiplier] as [string, number]
-          ) ?? []
+              [weaponType, multiplier] as [string, number],
+          ) ?? [],
       );
       model.hardpoint = shield.hp_type;
       model.kind = "shield";
@@ -403,11 +426,11 @@ export class EquipmentModel implements IEquipment {
       const dropper = def.ini[1];
       const mine = equipment?.findFirst(
         "mine",
-        (s) => s.get("nickname") === dropper.projectile_archetype
+        (s) => s.get("nickname") === dropper.projectile_archetype,
       )!;
       const explosion = equipment?.findFirst(
         "explosion",
-        (s) => s.get("nickname") === mine.get("explosion_arch")
+        (s) => s.get("nickname") === mine.get("explosion_arch"),
       )!;
       model.hardpoint = "hp_mine_dropper";
       model.kind = "mine";
@@ -496,7 +519,7 @@ export class GoodModel implements IGood {
       def,
     }: {
       def: IIniSection<IniEquipmentGood, "good">;
-    }
+    },
   ) {
     const model = new GoodModel();
 
@@ -514,14 +537,14 @@ export class GoodModel implements IGood {
     if (def.get("item_icon")) {
       try {
         const itemIconUtf = await ctx.loadUtf(
-          def.get("item_icon").replace(/\\/g, "/")
+          def.get("item_icon").replace(/\\/g, "/"),
         );
         const icon = itemIconUtf
           ?.listLeaves()
           .find(
             (l) =>
               l.path.includes("MIP") &&
-              l.fullPath.toLowerCase().includes(".tga")
+              l.fullPath.toLowerCase().includes(".tga"),
           );
         if (icon) {
           ctx.registerBinary(model.nickname + "_icon", icon.data);
@@ -529,7 +552,7 @@ export class GoodModel implements IGood {
       } catch (e) {
         console.warn(
           `Failed to load item icon for ${model.nickname}: ${e}`,
-          (e as Error).stack
+          (e as Error).stack,
         );
       }
     }

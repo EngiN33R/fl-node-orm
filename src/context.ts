@@ -112,13 +112,13 @@ export class DataContext implements IDataContext {
 
     // Load IDS strings and infocards
     const resources = ["resources.dll"].concat(
-      cfg.findFirst("resources")!.asArray("dll")
+      cfg.findFirst("resources")!.asArray("dll"),
     );
     let i = 0;
     for (const resource of resources) {
       try {
         const dll = await ResourceDll.fromFile(
-          path.join(instancePath, "EXE", resource)
+          path.join(instancePath, "EXE", resource),
         );
         for (const [key, value] of dll.strings.entries()) {
           this.strings.set(key + i * 65536, value);
@@ -136,18 +136,18 @@ export class DataContext implements IDataContext {
       "EXE",
       (cfg?.findFirst("freelancer")?.get("data path") as string).replace(
         /\\/g,
-        "/"
-      )
+        "/",
+      ),
     );
 
     // Load assorted binary files
     const navmapUtf = await this.loadUtf(
       "INTERFACE/NEURONET/NAVMAP/NEWNAVMAP/nav_prettymap.3db",
-      "navmap"
+      "navmap",
     );
     this.registerBinary(
       "navmap",
-      navmapUtf.get("Texture library\\fancymap.tga\\MIPS")?.data
+      navmapUtf.get("Texture library\\fancymap.tga\\MIPS")?.data,
     );
 
     // Load hardcoded INIs
@@ -170,21 +170,21 @@ export class DataContext implements IDataContext {
     // Load faction properties, reputations and empathy
     const factionProps = await this.parseIni(
       "MISSIONS/faction_prop.ini",
-      "faction_prop"
+      "faction_prop",
     );
     const initialWorld = await this.parseIni(
       cfg?.findFirst("data")?.get("groups") ?? "initialworld.ini",
-      "initialworld"
+      "initialworld",
     );
     const empathy = await this.parseIni("MISSIONS/empathy.ini", "empathy");
     for (const group of initialWorld.findAll("group")) {
       const groupFactionProps = factionProps.findFirst(
         "factionprops",
-        (s) => s.get("affiliation") === group.get("nickname")
+        (s) => s.get("affiliation") === group.get("nickname"),
       )?.ini;
       const groupEmpathy = empathy.findFirst(
         "repchangeeffects",
-        (s) => s.get("group") === group.get("nickname")
+        (s) => s.get("group") === group.get("nickname"),
       )?.ini;
       if (!groupFactionProps || !groupEmpathy) {
         continue;
@@ -229,8 +229,8 @@ export class DataContext implements IDataContext {
     const equipment = this.ini<IniEquipmentShape>("equipment");
     for (const def of equipment?.sections.filter((s) =>
       PARSED_SECTION_KEYS.includes(
-        s.name as (typeof PARSED_SECTION_KEYS)[number]
-      )
+        s.name as (typeof PARSED_SECTION_KEYS)[number],
+      ),
     ) ?? []) {
       await EquipmentModel.from(this, { def: def as EquipmentSection });
     }
@@ -243,12 +243,12 @@ export class DataContext implements IDataContext {
     }
 
     for (const basegood of this.ini<{ basegood: IniBaseGood }>(
-      "markets"
+      "markets",
     )?.findAll("basegood") ?? []) {
       this.market.addOffers(basegood);
     }
     for (const npcship of this.ini<{ npcshiparch: IniNpcShip }>(
-      "npcships"
+      "npcships",
     )?.findAll("npcshiparch") ?? []) {
       await NpcLoadoutModel.from(this, { def: npcship });
     }
@@ -260,10 +260,10 @@ export class DataContext implements IDataContext {
     const universeRoot = path.dirname(universePath);
     const universeIni = await this.parseIni<IniUniverseShape>(
       universePath,
-      "universe"
+      "universe",
     );
     const territory = await parseFile(
-      path.join(this.path, `${this.dataPath}/${universeRoot}/territory.ini`)
+      path.join(this.path, `${this.dataPath}/${universeRoot}/territory.ini`),
     );
     const territoryMap = parseTerritorySections(territory, this.ids.bind(this));
     for (const ini of universeIni.findAll("system")) {
@@ -275,7 +275,7 @@ export class DataContext implements IDataContext {
       try {
         const definition = await this.parseIni<IniSystemShape>(
           path.join(universeRoot, filepath),
-          `universe_${ini.nickname}`
+          `universe_${ini.nickname}`,
         );
         await SystemModel.from(this, {
           universe: ini,
@@ -289,7 +289,7 @@ export class DataContext implements IDataContext {
 
     // FLSR: Try loading crafting recipes
     const craftingRecipes = await this.safeParseIni(
-      "../EXE/flhook_plugins/FLSR-Crafting.cfg"
+      "../EXE/flhook_plugins/FLSR-Crafting.cfg",
     );
     for (const recipe of craftingRecipes.sections) {
       if (recipe.name === "general") {
@@ -302,7 +302,7 @@ export class DataContext implements IDataContext {
 
     // FLSR: Try loading lootboxes
     const lootboxes = await this.safeParseIni(
-      "../EXE/flhook_plugins/FLSR-LootBoxes.cfg"
+      "../EXE/flhook_plugins/FLSR-LootBoxes.cfg",
     );
     for (const lootbox of lootboxes.sections) {
       await LootBoxModel.from(this, {
@@ -313,7 +313,7 @@ export class DataContext implements IDataContext {
     // FLSR: Try loading engclass.dll
     try {
       const dll = await ResourceDll.fromFile(
-        path.join(instancePath, "EXE", "engclass.dll")
+        path.join(instancePath, "EXE", "engclass.dll"),
       );
       for (const [key, value] of dll.strings.entries()) {
         this.supplementaryStrings.set(`engclass.dll_${key}`, value);
@@ -328,7 +328,7 @@ export class DataContext implements IDataContext {
 
   async safeParseIni<S extends AnyRecordMap = AnyRecordMap>(
     relativePath: string,
-    nickname?: string
+    nickname?: string,
   ): Promise<IIniSections<S>> {
     try {
       return await this.parseIni(relativePath, nickname);
@@ -342,12 +342,12 @@ export class DataContext implements IDataContext {
 
   async parseIni<S extends AnyRecordMap = AnyRecordMap>(
     relativePath: string,
-    nickname?: string
+    nickname?: string,
   ): Promise<IIniSections<S>> {
     relativePath = relativePath.replace(/\\/g, "/");
     const ini = await IniSectionsModel.from(this, {
       sections: await parseIni(
-        path.join(this.path, this.dataPath, relativePath)
+        path.join(this.path, this.dataPath, relativePath),
       ),
       name: relativePath,
     });
@@ -360,7 +360,7 @@ export class DataContext implements IDataContext {
 
   registerIni<S extends AnyRecordMap = AnyRecordMap>(
     handle: string,
-    ini: IniSectionsModel<S>
+    ini: IniSectionsModel<S>,
   ) {
     if (this.inis.has(handle)) {
       this.inis
@@ -392,7 +392,7 @@ export class DataContext implements IDataContext {
     let index = this.models[model.type as K].indexOf(model);
     if (index === -1 && !strict) {
       index = this.models[model.type as K].findIndex(
-        (m) => m.nickname === model.nickname
+        (m) => m.nickname === model.nickname,
       );
     }
     this.models[model.type as K].splice(index, 1);
@@ -527,7 +527,9 @@ export class DataContext implements IDataContext {
     }
     const tradelane = this.entity("system")
       .findFirst((s) =>
-        s.tradelanes.some((tl) => tl.rings.some((r) => r.nickname === nickname))
+        s.tradelanes.some((tl) =>
+          tl.rings.some((r) => r.nickname === nickname),
+        ),
       )
       ?.tradelanes.flatMap((tl) => tl.rings)
       .find((r) => r.nickname === nickname);
@@ -539,7 +541,7 @@ export class DataContext implements IDataContext {
     if (nickname.startsWith("hp_")) {
       if (nickname.startsWith("hp_fighter_shield_special_")) {
         const level = Number(
-          nickname.replace("hp_fighter_shield_special_", "")
+          nickname.replace("hp_fighter_shield_special_", ""),
         );
         return this.ids(1700 + level - 1, nickname);
       }
@@ -549,7 +551,7 @@ export class DataContext implements IDataContext {
       }
       if (nickname.startsWith("hp_freighter_shield_special_")) {
         const level = Number(
-          nickname.replace("hp_freighter_shield_special_", "")
+          nickname.replace("hp_freighter_shield_special_", ""),
         );
         return this.ids(1720 + level, nickname);
       }
@@ -571,13 +573,13 @@ export class DataContext implements IDataContext {
       }
       if (nickname.startsWith("hp_freighter_power_special_")) {
         const level = Number(
-          nickname.replace("hp_freighter_power_special_", "")
+          nickname.replace("hp_freighter_power_special_", ""),
         );
         return this.supplementaryIds(26 + level - 1, "engclass.dll");
       }
       if (nickname.startsWith("hp_fighter_engine_special_")) {
         const level = Number(
-          nickname.replace("hp_fighter_engine_special_", "")
+          nickname.replace("hp_fighter_engine_special_", ""),
         );
         return this.supplementaryIds(36 + level - 1, "engclass.dll");
       }
@@ -587,7 +589,7 @@ export class DataContext implements IDataContext {
       }
       if (nickname.startsWith("hp_freighter_engine_special_")) {
         const level = Number(
-          nickname.replace("hp_freighter_engine_special_", "")
+          nickname.replace("hp_freighter_engine_special_", ""),
         );
         return this.supplementaryIds(56 + level - 1, "engclass.dll");
       }

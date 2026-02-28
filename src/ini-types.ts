@@ -203,6 +203,7 @@ export type IniEquipmentGun = {
   hp_gun_type: string;
   power_usage: number;
   refire_delay: number;
+  da_archetype: string;
   muzzle_velocity: number;
   toughness: number;
   projectile_archetype: string;

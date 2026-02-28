@@ -15,7 +15,7 @@ export interface Model<K extends EntityType> {
 
 export interface ModelInstantiator {
   from<K extends EntityType>(
-    inputs: Record<string, Section | Section[]>
+    inputs: Record<string, Section | Section[]>,
   ): Promise<Model<K>>;
 }
 
@@ -210,6 +210,7 @@ export interface IEquipment extends Model<"equipment"> {
     multipliers: {
       [shieldType: string]: number;
     };
+    barrelCount: number;
     powerUsage: number;
     hullDamage: number;
     shieldDamage: number;
@@ -223,6 +224,7 @@ export interface IEquipment extends Model<"equipment"> {
     multipliers: {
       [shieldType: string]: number;
     };
+    barrelCount: number;
     powerUsage: number;
     hullDamage: number;
     shieldDamage: number;
@@ -382,7 +384,7 @@ export interface IIniSection<
   as<V, K extends Key<S> = Key<S>>(key: K): V;
   asArray<K extends Key<S>>(
     key: K,
-    nested?: boolean
+    nested?: boolean,
   ): ForcedArray<NonNullable<S[K]>>;
   asSingle<K extends Key<S>>(key: K): Unarray<S[K]>;
 }
@@ -395,19 +397,19 @@ export interface IIniSections<S extends AnyRecordMap = AnyRecordMap> {
   append(sections: IIniSections<S>): void;
   findAll<K extends Key<S>>(
     name: K,
-    predicate?: (s: IIniSection<Unarray<S[K]>, K>) => boolean
+    predicate?: (s: IIniSection<Unarray<S[K]>, K>) => boolean,
   ): IIniSection<Unarray<S[K]>, K>[];
   findByNickname<K extends Key<S>>(
     name: K,
-    nickname: string
+    nickname: string,
   ): IIniSection<Unarray<S[K]>, K> | undefined;
   findFirst<K extends Key<S>>(
     name: K,
-    predicate?: (s: IIniSection<Unarray<S[K]>, K>) => boolean
+    predicate?: (s: IIniSection<Unarray<S[K]>, K>) => boolean,
   ): IIniSection<Unarray<S[K]>, K> | undefined;
   findFirstWithChildren<K extends Key<S>>(
     name: K,
-    predicate?: (s: IIniSection<Unarray<S[K]>>) => boolean
+    predicate?: (s: IIniSection<Unarray<S[K]>>) => boolean,
   ):
     | [IIniSection<Unarray<S[K]>>, IIniSection<Unarray<S[Key<S>]>>[]]
     | [undefined, []];
@@ -438,10 +440,10 @@ export interface IEntityQuerier<K extends EntityType> {
 export interface IMarketQuerier {
   getGood(
     base: string,
-    equipment: string
+    equipment: string,
   ): { price: number; sold: boolean; rep: number };
   getGoods(
-    base: string
+    base: string,
   ): Array<{ equipment: string; price: number; sold: boolean; rep: number }>;
   getBases(equipment: string): string[];
   getPrice(base: string, equipment: string): number;
@@ -551,7 +553,7 @@ export interface IDataContext {
    */
   findByNickname<K extends EntityType>(
     type: K,
-    nickname: string
+    nickname: string,
   ): Entity[K] | undefined;
   /**
    * Get IDS string for key.
@@ -575,7 +577,7 @@ export interface IDataContext {
    * @param handle INI file handle or path relative to instance root.
    */
   ini<S extends AnyRecordMap = AnyRecordMap>(
-    handle: string
+    handle: string,
   ): IIniSections<S> | undefined;
   /**
    * Get data for a UTF node.
@@ -589,7 +591,7 @@ export interface IDataContext {
   binary(handle: string): ArrayBuffer | undefined;
   parseIni<S extends AnyRecordMap = AnyRecordMap>(
     relativePath: string,
-    nickname?: string
+    nickname?: string,
   ): Promise<IIniSections<S>>;
   loadUtf(relativePath: string, nickname?: string): Promise<UtfTree>;
   entity<K extends EntityType>(type: K): IEntityQuerier<K>;

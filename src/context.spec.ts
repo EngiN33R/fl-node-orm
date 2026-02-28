@@ -56,33 +56,12 @@ describe("DataContext", () => {
       expect(recipe?.nickname).toBe("boron");
     });
 
-    it("should find equipment class label", async () => {
-      // console.log(
-      //   new Array(100).fill(0).map((_, i) => {
-      //     const ids = 1500 + i;
-      //     return `${ids}: ${ctx.ids(ids)}`;
-      //   })
-      // );
-      // console.log(
-      //   new Array(100).fill(0).map((_, i) => {
-      //     const ids = 1600 + i;
-      //     return `${ids}: ${ctx.ids(ids)}`;
-      //   })
-      // );
-      // console.log(
-      //   new Array(100).fill(0).map((_, i) => {
-      //     const ids = 1700 + i;
-      //     return `${ids}: ${ctx.ids(ids)}`;
-      //   })
-      // );
-      console.log(
-        DataContext.INSTANCE.findIdsFuzzy("pulse")
-          .map((id) => `${id}: ${ctx.ids(id)}`)
-          .filter((s) => !s.includes("<RDL>"))
-      );
-      // console.log(
-      //   DataContext.INSTANCE.procurer.getProcurementDetails("no2_gun_medium02")
-      // );
+    it("should find correct barrel count", async () => {
+      const turret = ctx
+        .entity("equipment")
+        .findByNickname("br_turret_capital_super01");
+      expect(turret).toBeDefined();
+      expect(turret?.turret?.barrelCount).toBe(2);
     });
   });
 });
