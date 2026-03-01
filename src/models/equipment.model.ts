@@ -267,7 +267,6 @@ export class EquipmentModel implements IEquipment {
       if (cmpPath) {
         try {
           const gunUtf = await ctx.loadUtf(cmpPath);
-          console.log(gunUtf);
           if (gunUtf) {
             barrelCount = new Set(
               gunUtf
@@ -306,10 +305,11 @@ export class EquipmentModel implements IEquipment {
         );
         model[model.kind] = {
           powerUsage: gun.power_usage,
-          hullDamage: munition!.get("hull_damage")!,
+          hullDamage: munition!.get("hull_damage")! * barrelCount,
           barrelCount,
           shieldDamage:
-            munition!.get("energy_damage") || munition!.get("hull_damage")! / 2,
+            (munition!.get("energy_damage") ||
+              munition!.get("hull_damage")! / 2) * barrelCount,
           refireRate: gun.refire_delay,
           damageType,
           multipliers,
