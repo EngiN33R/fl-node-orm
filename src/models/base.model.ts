@@ -22,6 +22,7 @@ export class BaseModel implements IBase {
   public rotation!: [number, number, number];
   public faction!: string;
   public archetype!: string;
+  public loadout?: string;
   public visit!: ReturnType<typeof ObjectVisitBitmask>;
 
   static async from(
@@ -29,7 +30,7 @@ export class BaseModel implements IBase {
     inputs: {
       universe: IIniSection<IniUniverseBase>;
       definition: IIniSection<IniSystemObject>;
-    }
+    },
   ) {
     const model = new BaseModel();
 
@@ -49,6 +50,7 @@ export class BaseModel implements IBase {
     model.rotation = object.rotate ?? [0, 0, 0];
     model.faction = object.reputation ?? "fc_uk_grp";
     model.archetype = object.archetype;
+    model.loadout = object.loadout;
     model.visit = ObjectVisitBitmask(object.visit ?? 0);
 
     ctx.registerModel(model);

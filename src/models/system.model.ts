@@ -18,7 +18,6 @@ import {
 } from "../types";
 import { Bitmask } from "../util/bitmask";
 import { rgbToHex } from "../util/color";
-import { Section } from "../util/ini";
 import { BaseModel } from "./base.model";
 import { ObjectVisitBitmask, ZoneVisitBitmask } from "./common";
 
@@ -88,7 +87,7 @@ export class ZoneModel implements IZone {
 
   static async from(
     ctx: IDataContext,
-    inputs: { system: string; definition: IIniSection<IniSystemZone> }
+    inputs: { system: string; definition: IIniSection<IniSystemZone> },
   ) {
     const model = new ZoneModel();
     model.#ini = inputs.definition.ini[1];
@@ -184,7 +183,7 @@ export class ObjectModel implements IObject {
 
   static async from(
     ctx: IDataContext,
-    inputs: { system: string; definition: IIniSection<IniSystemObject> }
+    inputs: { system: string; definition: IIniSection<IniSystemObject> },
   ) {
     const model = new ObjectModel();
     model.#ini = inputs.definition.ini[1];
@@ -219,7 +218,7 @@ export class ObjectModel implements IObject {
     }
     if (model.#ini.tradelane_space_name) {
       model.tradelaneSpaceName = ctx.ids(
-        Number(model.#ini.tradelane_space_name)
+        Number(model.#ini.tradelane_space_name),
       );
     }
 
@@ -262,14 +261,14 @@ export class SystemModel implements ISystem {
       universe: IIniSection<IniUniverseSystem>;
       definition: IIniSections<IniSystemShape>;
       territory: string;
-    }
+    },
   ) {
     const bases =
       ctx
         .ini<IniUniverseShape>("universe")
         ?.findAll(
           "base",
-          (s) => s.get("system") === inputs.universe.get("nickname")
+          (s) => s.get("system") === inputs.universe.get("nickname"),
         ) ?? [];
 
     const model = new SystemModel();
@@ -288,7 +287,7 @@ export class SystemModel implements ISystem {
         acc[cur.get("nickname")] = cur;
         return acc;
       },
-      {} as Record<string, IIniSection<IniSystemObject>>
+      {} as Record<string, IIniSection<IniSystemObject>>,
     );
 
     for (const definition of objects) {
@@ -307,14 +306,14 @@ export class SystemModel implements ISystem {
           await ObjectModel.from(ctx, {
             system: inputs.universe.get("nickname"),
             definition: objectMap[object.next_ring],
-          })
+          }),
         );
         while (latestRing.next_ring) {
           rings.push(
             await ObjectModel.from(ctx, {
               system: inputs.universe.get("nickname"),
               definition: objectMap[latestRing.next_ring],
-            })
+            }),
           );
           latestRing = objectMap[latestRing.next_ring].ini[1];
         }
@@ -351,14 +350,14 @@ export class SystemModel implements ISystem {
         !object.parent
       ) {
         const universeBase = bases.find(
-          (b) => b.get("nickname") === object.base
+          (b) => b.get("nickname") === object.base,
         );
         if (universeBase) {
           model.bases.push(
             await BaseModel.from(ctx, {
               universe: universeBase,
               definition,
-            })
+            }),
           );
         }
       } else {
@@ -366,7 +365,7 @@ export class SystemModel implements ISystem {
           await ObjectModel.from(ctx, {
             system: inputs.universe.get("nickname"),
             definition,
-          })
+          }),
         );
       }
     }
@@ -376,7 +375,7 @@ export class SystemModel implements ISystem {
         await ZoneModel.from(ctx, {
           system: inputs.universe.get("nickname"),
           definition,
-        })
+        }),
       );
     }
 

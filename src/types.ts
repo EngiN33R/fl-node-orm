@@ -92,6 +92,7 @@ export interface IBase extends Model<"base"> {
   rotation: [number, number, number];
   faction: string;
   archetype: string;
+  loadout?: string;
   visit: ReturnType<typeof ObjectVisitBitmask>;
 }
 
