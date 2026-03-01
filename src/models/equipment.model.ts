@@ -67,7 +67,7 @@ export class EquipmentModel implements IEquipment {
   public infocard!: string;
   public icon!: string;
 
-  public hardpoint!: string;
+  public hardpoint?: string;
   public hitpoints!: number;
   public mass!: number;
   public volume!: number;
@@ -254,12 +254,9 @@ export class EquipmentModel implements IEquipment {
         (s) => s.get("nickname") === munition.get("explosion_arch"),
       );
       model.hardpoint = gun.hp_gun_type;
-      if (!model.hardpoint) {
-        return;
-      }
       model.kind = motor
         ? "missile"
-        : model.hardpoint.includes("turret")
+        : model.hardpoint?.includes("turret")
           ? "turret"
           : "gun";
       let barrelCount = 1;

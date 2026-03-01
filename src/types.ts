@@ -177,7 +177,7 @@ export interface IEquipment extends Model<"equipment"> {
   name: string;
   infocard: string;
   icon: string;
-  hardpoint: string;
+  hardpoint?: string;
   hitpoints: number;
   mass: number;
   volume: number;
